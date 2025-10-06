@@ -1,0 +1,231 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Almarai:wght@300;400;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system for HR & Sales CRM. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Modern CRM Color Palette */
+    --background: 0 0% 98%;
+    --foreground: 222 15% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 15% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 15% 15%;
+
+    /* Primary: Professional Red - Enhanced */
+    --primary: 0 85% 35%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 0 85% 30%;
+    --primary-light: 0 85% 95%;
+
+    /* Secondary: Success Green */
+    --secondary: 142 71% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 142 71% 95%;
+
+    /* Muted: Professional Gray */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Accent: Warning Orange */
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 25 95% 95%;
+
+    /* Destructive: Error Red - Enhanced */
+    --destructive: 0 80% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-light: 0 80% 95%;
+
+    /* Borders and Inputs */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 0 85% 35%;
+
+    /* Sidebar Colors */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 0 85% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 47% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 222 47% 20%;
+    --sidebar-ring: 0 85% 35%;
+
+    /* Additional CRM Colors */
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --info-light: 199 89% 95%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-light: 38 92% 95%;
+
+    /* Gradients - Enhanced */
+    --gradient-primary: linear-gradient(135deg, hsl(0 85% 45%), hsl(0 85% 55%));
+    --gradient-secondary: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 85% 45%), hsl(199 89% 48%));
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 0 80% 40%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 0 85% 35%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 0 85% 35%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 0 85% 35%;
+
+    --primary: 0 85% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 0 85% 35%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 0 85% 35%;
+
+    --destructive: 0 62.8% 25%;
+    --destructive-foreground: 0 85% 35%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 0 80% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 0 91.2% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    direction: rtl;
+    font-family: 'Almarai', 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* RTL Support */
+  [dir="rtl"] {
+    direction: rtl;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer components {
+  /* CRM Component Styles */
+  .crm-card {
+    @apply bg-card border border-border rounded-lg shadow-sm p-6;
+  }
+
+  .crm-stat-card {
+    @apply crm-card bg-gradient-to-br from-card to-muted/20 hover:shadow-md transition-all duration-300;
+  }
+
+  .crm-button-primary {
+    @apply bg-primary hover:bg-primary-hover text-primary-foreground font-medium rounded-lg px-4 py-2 transition-colors duration-200;
+  }
+
+  .crm-button-secondary {
+    @apply bg-secondary hover:bg-secondary/90 text-secondary-foreground font-medium rounded-lg px-4 py-2 transition-colors duration-200;
+  }
+
+  .crm-input {
+    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Dashboard Grid */
+  .dashboard-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6;
+  }
+
+  /* Navigation Styles */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200;
+  }
+
+  .nav-item-active {
+    @apply nav-item bg-primary text-primary-foreground;
+  }
+
+  .nav-item-inactive {
+    @apply nav-item text-muted-foreground hover:bg-muted hover:text-foreground;
+  }
+
+  /* Sidebar spacing fix for navbar overlap */
+  .group\/sidebar-wrapper .fixed.inset-y-0.z-10.hidden.h-svh.w-\[--sidebar-width\].ease-linear.md\:flex.right-0 > div {
+    margin-top: 4rem;
+  }
+}
+.rtl {
+  direction: rtl;
+}
+.ltr {
+  direction: ltr;
+}

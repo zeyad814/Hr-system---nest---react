@@ -1,0 +1,733 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @default("")
+  role         String   @default("APPLICANT")
+  department   String?
+  position     String?
+  phone        String?
+  location     String?
+  bio          String?
+  avatar       String?
+  joinDate     DateTime @default(now())
+  target       String?
+  achieved     String?
+  status       String   @default("ACTIVE")
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  applicant    Applicant?
+  client       Client?
+  profile      Profile?
+  settings     UserSettings?
+  timelineEntries ApplicationTimeline[]
+  feedback     Feedback[]
+  scheduledInterviews Interview[]
+  assignedReminders SalesReminder[] @relation("AssignedReminders")
+  createdReminders SalesReminder[] @relation("CreatedReminders")
+}
+
+enum JobStatus {
+  OPEN
+  CLOSED
+  HIRED
+}
+
+model Client {
+  id         String   @id @default(uuid())
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  companyName String?
+  companySize String?
+  industry   String?
+  website    String?
+  email      String?
+  phone      String?
+  address    String?
+  location   String?
+  description String?
+  contactPerson String?
+  logo       String?
+  establishedYear Int?
+  employees  String?
+  revenue    String?
+  status     ClientStatus @default(NEW)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  jobs       Job[]
+  jobRequests JobRequest[]
+  contracts  Contract[]
+  notes      Note[]
+  reminders  Reminder[]
+  revenues   Revenue[]
+}
+
+model Job {
+  id                    String     @id @default(uuid())
+  title                 String     // Job Title * (مطلوب)
+  company               String     // Company * (مطلوب)
+  location              String     // Location * (مطلوب)
+  locationLink          String?    // Location link (اختياري)
+  jobType               String     // Job Type * (مطلوب)
+  department            String?    // Department
+  experienceLevel       String?    // Experience Level
+  remoteWorkAvailable   Boolean    @default(false) // Remote work available
+  description           String     // Job Description * (مطلوب)
+  requirements          String     // Requirements * (مطلوب)
+  requiredSkills        String?    // Required Skills
+  salaryRange           String     // Salary Range * (مطلوب)
+  applicationDeadline   DateTime   // Application Deadline * (مطلوب)
+  clientId              String
+  client                Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status                JobStatus  @default(OPEN)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  applications          JobApplication[]
+}
+
+model JobRequest {
+  id                    String     @id @default(uuid())
+  title                 String     // Job Title * (مطلوب)
+  department            String?    // Department
+  description           String     // Job Description * (مطلوب)
+  location              String     // Location * (مطلوب)
+  type                  String?    // Job Type
+  salary                String?    // Salary
+  experience            String?    // Experience Level
+  positions             Int        @default(1) // Number of positions
+  requirements          String?    // Requirements
+  salaryRange           String?    // Salary Range
+  deadline              String?    // Application Deadline
+  clientId              String
+  client                Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status                String     @default("PENDING") // PENDING, APPROVED, REJECTED
+  submittedDate         String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+}
+
+model JobApplication {
+  id             String   @id @default(uuid())
+  jobId          String
+  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicantId    String
+  applicant      Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  status         ApplicationStatus @default(PENDING)
+  resumeUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  timeline       ApplicationTimeline[]
+  feedback       Feedback[]
+  interviews     Interview[]
+}
+
+enum ApplicationStatus {
+  PENDING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+model Applicant {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone        String?
+  address      String?
+  location     String?
+  dateOfBirth  DateTime?
+  nationality  String?
+  gender       Gender?
+  maritalStatus MaritalStatus?
+  skills       String?
+  experience   String?
+  education    String?
+  languages    String?
+  portfolio    String?
+  website      String?
+  linkedin     String?
+  github       String?
+  twitter      String?
+  bio          String?
+  avatar       String?
+  rating       Float?   @default(0)
+  resumeUrl    String?
+  coverLetter  String?
+  expectedSalary String?
+  availableFrom DateTime?
+  workType     WorkType?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  applications JobApplication[]
+  interviews   Interview[]
+  experiences  Experience[]
+  educations   Education[]
+  projects     Project[]
+  qualifications Qualification[]
+}
+
+model ApplicationTimeline {
+  id            String         @id @default(uuid())
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status        ApplicationStatus
+  notes         String?
+  createdBy     String
+  createdByUser User          @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime      @default(now())
+}
+
+model Feedback {
+  id            String         @id @default(uuid())
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  rating        Int?           // 1-5 rating
+  comments      String?
+  decision      FeedbackDecision?
+  createdBy     String
+  createdByUser User          @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum FeedbackDecision {
+  ACCEPT
+  REJECT
+  INTERVIEW
+  PENDING
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  CONFIRMED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+  RESCHEDULED
+}
+
+enum InterviewType {
+  PHONE
+  VIDEO
+  IN_PERSON
+  TECHNICAL
+  HR
+  FINAL
+}
+
+enum ClientStatus {
+  NEW
+  NEGOTIATION
+  SIGNED
+  NOT_INTERESTED
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING
+  SIGNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum SalesContractStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum WorkType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+  REMOTE
+  HYBRID
+}
+
+model Experience {
+  id          String   @id @default(uuid())
+  applicantId String
+  applicant   Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  title       String
+  company     String
+  location    String?
+  startDate   DateTime
+  endDate     DateTime?
+  current     Boolean  @default(false)
+  description String?
+  achievements String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Education {
+  id          String   @id @default(uuid())
+  applicantId String
+  applicant   Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  degree      String
+  institution String
+  location    String?
+  startDate   DateTime
+  endDate     DateTime?
+  current     Boolean  @default(false)
+  gpa         String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  applicantId String
+  applicant   Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  technologies String[] @default([])
+  url         String?
+  githubUrl   String?
+  startDate   DateTime?
+  endDate     DateTime?
+  current     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Qualification {
+  id          String   @id @default(uuid())
+  applicantId String
+  applicant   Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  title       String
+  issuer      String
+  issueDate   DateTime
+  expiryDate  DateTime?
+  credentialId String?
+  url         String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+
+
+enum ContractType {
+  RECRUITMENT
+  CONSULTING
+  TRAINING
+  RETAINER
+}
+
+model Contract {
+  id            String        @id @default(uuid())
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  type          ContractType  @default(RECRUITMENT)
+  status        ContractStatus @default(DRAFT)
+  value         Float?
+  currency      String        @default("SAR")
+  startDate     DateTime?
+  endDate       DateTime?
+  signedAt      DateTime?
+  fileUrl       String?
+  commission    Float?
+  commissionType String?      @default("percentage")
+  assignedTo    String?
+  jobTitle      String?
+  progress      Int?          @default(0)
+  paymentStatus String?       @default("pending")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Note {
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+model Reminder {
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title      String
+  remindAt   DateTime
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Revenue {
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount     Decimal
+  periodMonth Int?
+  periodYear  Int?
+  createdAt  DateTime @default(now())
+}
+
+model Interview {
+  id            String         @id @default(uuid())
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledBy   String
+  scheduledByUser User         @relation(fields: [scheduledBy], references: [id])
+  interviewerIds String[]      // Array of user IDs who will conduct the interview
+  candidateId   String
+  candidate     Applicant      @relation(fields: [candidateId], references: [id])
+  title         String
+  description   String?
+  type          InterviewType  @default(HR)
+  status        InterviewStatus @default(SCHEDULED)
+  scheduledAt   DateTime
+  duration      Int            @default(60) // Duration in minutes
+  location      String?        // Physical location or meeting link
+  notes         String?        // Pre-interview notes
+  attendanceNotes String?      // Post-interview attendance notes
+  report        String?        // Interview report/feedback
+  reminderSent  Boolean        @default(false)
+  reminderSentAt DateTime?
+  // Agora Integration Fields
+  agoraChannelName String?     // Agora channel name for video calls
+  agoraToken    String?        // Agora access token
+  agoraAppId    String?        // Agora App ID
+  recordingUrl  String?        // URL of recorded interview
+  recordingId   String?        // Agora recording resource ID
+  isRecording   Boolean        @default(false)
+  recordingStartedAt DateTime? // When recording started
+  recordingEndedAt DateTime?   // When recording ended
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// Sales Models
+model SalesClient {
+  id            String   @id @default(uuid())
+  name          String
+  company       String?
+  email         String?
+  phone         String?
+  location      String?
+  industry      String?
+  status        SalesClientStatus @default(LEAD)
+  totalJobs     Int      @default(0)
+  totalSpent    Decimal  @default(0)
+  joinDate      DateTime @default(now())
+  lastActivity  DateTime @default(now())
+  contactPerson String?
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  jobs          SalesJob[]
+  revenues      SalesRevenue[]
+  contracts     SalesContract[]
+  reminders     SalesReminder[]
+}
+
+model SalesJob {
+  id           String   @id @default(uuid())
+  title        String
+  clientId     String
+  client       SalesClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  department   String?
+  location     String?
+  type         JobType  @default(FULL_TIME)
+  status       SalesJobStatus @default(OPEN)
+  salary       String?
+  candidates   Int      @default(0)
+  applications Int      @default(0)
+  hired        Int      @default(0)
+  createdDate  DateTime @default(now())
+  deadline     DateTime?
+  description  String?
+  requirements String?
+  benefits     String?
+  commission   Decimal? @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SalesRevenue {
+  id         String   @id @default(uuid())
+  source     String
+  clientId   String
+  client     SalesClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contract   String?
+  amount     Decimal
+  currency   String   @default("SAR")
+  commission Decimal? @default(0)
+  type       RevenueType @default(CONTRACT)
+  status     RevenueStatus @default(PENDING)
+  date       DateTime @default(now())
+  dueDate    DateTime?
+  paidDate   DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum SalesClientStatus {
+  LEAD
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+enum SalesJobStatus {
+  OPEN
+  IN_PROGRESS
+  FILLED
+  CANCELLED
+  ON_HOLD
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+  INTERNSHIP
+}
+
+enum RevenueType {
+  CONTRACT
+  COMMISSION
+  BONUS
+  RETAINER
+}
+
+enum RevenueStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// Sales Targets Model
+model SalesTarget {
+  id          String   @id @default(uuid())
+  title       String
+  type        TargetType
+  target      Decimal
+  achieved    Decimal  @default(0)
+  period      String   // e.g., "March 2024", "Q1 2024"
+  startDate   DateTime
+  endDate     DateTime
+  status      TargetStatus @default(ACTIVE)
+  assignedTo  String?  // User ID
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Sales Contracts Model (detailed)
+model SalesContract {
+  id           String   @id @default(uuid())
+  title        String
+  clientId     String
+  client       SalesClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type         SalesContractType @default(RECRUITMENT)
+  status       SalesContractStatus @default(DRAFT)
+  value        Decimal
+  currency     String   @default("SAR")
+  startDate    DateTime
+  endDate      DateTime
+  signedDate   DateTime?
+  paymentTerms String?
+  commission   Decimal  @default(0)
+  description  String?
+  terms        String[] // Array of terms
+  assignedTo   String?  // User ID
+  progress     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  milestones   SalesContractMilestone[]
+  documents    SalesContractDocument[]
+  reminders    SalesReminder[]
+}
+
+// Sales Contract Milestones
+model SalesContractMilestone {
+  id         String   @id @default(uuid())
+  contractId String
+  contract   SalesContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  title      String
+  amount     Decimal
+  dueDate    DateTime
+  status     MilestoneStatus @default(PENDING)
+  completedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Sales Contract Documents
+model SalesContractDocument {
+  id         String   @id @default(uuid())
+  contractId String
+  contract   SalesContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  name       String
+  type       String
+  fileUrl    String
+  uploadDate DateTime @default(now())
+  createdAt  DateTime @default(now())
+}
+
+enum TargetType {
+  REVENUE
+  CONTRACTS
+  CLIENTS
+  JOBS
+}
+
+enum TargetStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+enum SalesContractType {
+  RECRUITMENT
+  RETAINER
+  PROJECT
+  ANNUAL
+}
+
+
+
+enum MilestoneStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+}
+
+enum ReminderType {
+  FOLLOW_UP
+  MEETING
+  CALL
+  EMAIL
+  CONTRACT_DEADLINE
+  PAYMENT_DUE
+  PROPOSAL_DEADLINE
+  OTHER
+}
+
+enum ReminderPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// User Settings Model
+model UserSettings {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settings  Json     // Store all settings as JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Agora Settings Model
+model AgoraSettings {
+  id              String   @id @default(uuid())
+  appId           String   // Agora App ID
+  appCertificate  String   // Agora App Certificate
+  isEnabled       Boolean  @default(true)
+  recordingEnabled Boolean @default(false)
+  recordingBucket String?  // Cloud storage bucket for recordings
+  recordingRegion String?  // Cloud storage region
+  maxChannelUsers Int      @default(10) // Maximum users per channel
+  tokenExpiry     Int      @default(3600) // Token expiry in seconds
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Sales Reminders Model
+model SalesReminder {
+  id          String           @id @default(uuid())
+  title       String
+  description String?
+  remindAt    DateTime
+  type        ReminderType
+  priority    ReminderPriority
+  completed   Boolean          @default(false)
+  clientId    String?
+  client      SalesClient?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  contractId  String?
+  contract    SalesContract?   @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  assignedTo  String?
+  assignedUser User?           @relation("AssignedReminders", fields: [assignedTo], references: [id], onDelete: SetNull)
+  createdBy   String
+  creator     User             @relation("CreatedReminders", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("sales_reminders")
+}
+
+model Profile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName       String?
+  lastName        String?
+  phone           String?
+  address         String?
+  dateOfBirth     DateTime?
+  hireDate        DateTime?
+  emergencyContact String?
+  emergencyPhone  String?
+  department      String?
+  position        String?
+  skills          String[]  @default([])
+  experience      String?
+  education       String?
+  certifications  String[]  @default([])
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("profiles")
+}

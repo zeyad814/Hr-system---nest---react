@@ -1,0 +1,141 @@
+### Test Contracts API Endpoints
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbHh4eHh4eHgiLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzA0MDY3MjAwLCJleHAiOjE3MDQxNTM2MDB9.example
+
+### 1. Get all contracts
+GET {{baseUrl}}/contracts
+Authorization: Bearer {{token}}
+
+### 2. Get contracts with search and filters
+GET {{baseUrl}}/contracts?search=مطور&status=ACTIVE&type=RECRUITMENT&page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 3. Get contract statistics
+GET {{baseUrl}}/contracts/stats
+Authorization: Bearer {{token}}
+
+### 4. Create new contract
+POST {{baseUrl}}/contracts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "clientId": "client-uuid-here",
+  "title": "عقد توظيف مطور React",
+  "description": "عقد توظيف مطور React أول للعمل في مشروع تطوير تطبيق ويب",
+  "type": "RECRUITMENT",
+  "status": "DRAFT",
+  "value": 25000,
+  "currency": "SAR",
+  "startDate": "2024-01-15",
+  "endDate": "2024-07-15",
+  "jobTitle": "مطور React أول",
+  "commission": 2500,
+  "commissionType": "percentage",
+  "assignedTo": "أحمد محمد",
+  "progress": 0,
+  "paymentStatus": "pending"
+}
+
+### 5. Get specific contract
+GET {{baseUrl}}/contracts/contract-uuid-here
+Authorization: Bearer {{token}}
+
+### 6. Update contract
+PATCH {{baseUrl}}/contracts/contract-uuid-here
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "عقد توظيف مطور React - محدث",
+  "status": "ACTIVE",
+  "progress": 25,
+  "paymentStatus": "partial"
+}
+
+### 7. Update contract status
+PATCH {{baseUrl}}/contracts/contract-uuid-here/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "ACTIVE"
+}
+
+### 8. Update contract progress
+PATCH {{baseUrl}}/contracts/contract-uuid-here/progress
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "progress": 75
+}
+
+### 9. Get client contracts
+GET {{baseUrl}}/contracts/client/client-uuid-here?page=1&limit=5
+Authorization: Bearer {{token}}
+
+### 10. Delete contract (Admin only)
+DELETE {{baseUrl}}/contracts/contract-uuid-here
+Authorization: Bearer {{token}}
+
+### 11. Test with different roles
+
+# HR Role
+GET {{baseUrl}}/contracts
+Authorization: Bearer hr-token-here
+
+# Sales Role
+GET {{baseUrl}}/contracts
+Authorization: Bearer sales-token-here
+
+# Client Role (limited access)
+GET {{baseUrl}}/contracts/specific-contract-id
+Authorization: Bearer client-token-here
+
+### 12. Test error cases
+
+# Invalid contract ID
+GET {{baseUrl}}/contracts/invalid-id
+Authorization: Bearer {{token}}
+
+# Create contract with invalid client ID
+POST {{baseUrl}}/contracts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "clientId": "invalid-client-id",
+  "title": "عقد اختبار"
+}
+
+# Update non-existent contract
+PATCH {{baseUrl}}/contracts/non-existent-id
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "عقد محدث"
+}
+
+### 13. Test validation
+
+# Create contract with missing required fields
+POST {{baseUrl}}/contracts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "عقد بدون معرف عميل"
+}
+
+# Update progress with invalid value
+PATCH {{baseUrl}}/contracts/contract-uuid-here/progress
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "progress": 150
+}

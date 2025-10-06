@@ -1,0 +1,71 @@
+### Test Applicants API Endpoints
+
+### 1. Login as Applicant to get token
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "applicant@test.com",
+  "password": "Pass123!"
+}
+
+### 2. Get applicant profile (requires token from login)
+GET http://localhost:3000/api/applicants/profile
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### 3. Create applicant profile (requires token from login)
+POST http://localhost:3000/api/applicants/profile
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phone": "+966501234567",
+  "address": "الرياض، المملكة العربية السعودية",
+  "location": "الرياض",
+  "skills": "JavaScript, React, Node.js, TypeScript, MongoDB",
+  "experience": "3 سنوات في تطوير تطبيقات الويب",
+  "education": "بكالوريوس علوم الحاسب - جامعة الملك سعود",
+  "portfolio": "https://github.com/applicant-test"
+}
+
+### 4. Update applicant profile (requires token from login)
+PUT http://localhost:3000/api/applicants/profile
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phone": "+966501234567",
+  "address": "جدة، المملكة العربية السعودية",
+  "location": "جدة",
+  "skills": "JavaScript, React, Node.js, TypeScript, MongoDB, Python",
+  "experience": "4 سنوات في تطوير تطبيقات الويب والموبايل",
+  "education": "بكالوريوس علوم الحاسب - جامعة الملك سعود",
+  "portfolio": "https://portfolio.example.com"
+}
+
+### 5. Get my applications (requires token from login)
+GET http://localhost:3000/api/applicants/applications
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### 6. Apply to a job (requires token from login and valid job ID)
+POST http://localhost:3000/api/applicants/apply
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "jobId": "JOB_ID_HERE",
+  "resumeUrl": "https://example.com/resume.pdf"
+}
+
+### 7. Withdraw application (requires token from login and valid application ID)
+PATCH http://localhost:3000/api/applicants/applications/APPLICATION_ID_HERE/withdraw
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### Notes:
+### - Replace {{token}} with the actual JWT token from the login response
+### - Replace JOB_ID_HERE with an actual job ID from the database
+### - Replace APPLICATION_ID_HERE with an actual application ID
+### - Make sure the backend server is running on http://localhost:3000

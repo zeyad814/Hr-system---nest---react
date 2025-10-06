@@ -1,0 +1,72 @@
+### Test Users API Endpoints
+
+### 1. Get all users with pagination
+GET http://localhost:3000/api/users
+Content-Type: application/json
+
+### 2. Get all users with search
+GET http://localhost:3000/api/users?search=john&page=1&limit=5
+Content-Type: application/json
+
+### 3. Get users by role
+GET http://localhost:3000/api/users?role=ADMIN&page=1&limit=10
+Content-Type: application/json
+
+### 4. Get users by status
+GET http://localhost:3000/api/users?status=ACTIVE&page=1&limit=10
+Content-Type: application/json
+
+### 5. Get users by department
+GET http://localhost:3000/api/users?department=IT&page=1&limit=10
+Content-Type: application/json
+
+### 6. Get user statistics
+GET http://localhost:3000/api/users/stats
+Content-Type: application/json
+
+### 7. Get departments list
+GET http://localhost:3000/api/users/departments
+Content-Type: application/json
+
+### 8. Create new user
+POST http://localhost:3000/api/users
+Content-Type: application/json
+
+{
+  "name": "أحمد محمد",
+  "email": "ahmed@example.com",
+  "password": "password123",
+  "role": "EMPLOYEE",
+  "department": "تقنية المعلومات",
+  "position": "مطور برمجيات"
+}
+
+### 9. Get user by ID (replace USER_ID with actual ID)
+GET http://localhost:3000/api/users/USER_ID
+Content-Type: application/json
+
+### 10. Update user (replace USER_ID with actual ID)
+PATCH http://localhost:3000/api/users/USER_ID
+Content-Type: application/json
+
+{
+  "name": "أحمد محمد المحدث",
+  "department": "الموارد البشرية",
+  "position": "مدير الموارد البشرية"
+}
+
+### 11. Update user status (replace USER_ID with actual ID)
+PATCH http://localhost:3000/api/users/USER_ID/status
+Content-Type: application/json
+
+{
+  "status": "INACTIVE"
+}
+
+### 12. Delete user (replace USER_ID with actual ID)
+DELETE http://localhost:3000/api/users/USER_ID
+Content-Type: application/json
+
+### 13. Test sorting and filtering combined
+GET http://localhost:3000/api/users?search=أحمد&role=EMPLOYEE&status=ACTIVE&sortBy=createdAt&sortOrder=desc&page=1&limit=5
+Content-Type: application/json
