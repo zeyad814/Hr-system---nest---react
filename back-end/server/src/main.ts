@@ -33,6 +33,7 @@ async function bootstrap() {
       'http://localhost:8081',
       'https://966550063691.codemz.com',
       'http://localhost:3000',
+      /\.railway\.app$/,  // Allow all Railway frontend domains
     ],
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
