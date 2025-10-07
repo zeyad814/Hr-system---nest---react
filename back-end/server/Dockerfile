@@ -1,59 +1,38 @@
-# ==========================================
-# Stage 1: Dependencies
-# ==========================================
-FROM node:22-alpine AS deps
+FROM node:22-alpine
 
 WORKDIR /app
 
+# نسخ package files أولاً للـ caching
 COPY package*.json ./
+
+# نسخ prisma schema
 COPY prisma ./prisma/
 
-RUN npm ci
+# تثبيت كل dependencies (بما فيها dev)
+RUN npm install
+
+# توليد Prisma Client
 RUN npx prisma generate
 
-# ==========================================
-# Stage 2: Builder
-# ==========================================
-FROM node:22-alpine AS builder
-
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package*.json ./
+# نسخ كل الكود
 COPY . .
 
+# Build
 RUN npm run build
-RUN ls -la /app/dist && echo "✓ dist folder exists" || (echo "✗ dist folder missing!" && exit 1)
 
-# ==========================================
-# Stage 3: Production
-# ==========================================
-FROM node:22-alpine AS runner
+# Debug: تحقق من dist
+RUN echo "=== Checking build output ===" && \
+    ls -la && \
+    echo "=== dist folder ===" && \
+    ls -la dist/ && \
+    echo "=== dist contents ===" && \
+    find dist -type f
 
-WORKDIR /app
-
-ENV NODE_ENV=production
-
-COPY package*.json ./
-COPY prisma ./prisma/
-
-RUN npm ci --omit=dev && npm cache clean --force
-RUN npx prisma generate
-
-COPY --from=builder /app/dist ./dist
-
-RUN ls -la /app/dist && echo "✓ dist copied successfully"
-
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001 && \
-    chown -R nestjs:nodejs /app
-
-USER nestjs
+# حذف dev dependencies لتقليل الحجم
+RUN npm prune --production
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+ENV NODE_ENV=production
 
-# ✅ الأهم - تأكد من .js
 CMD ["node", "dist/main.js"]
