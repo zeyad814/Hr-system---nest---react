@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import api from '@/lib/api';
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getMonthName as getMonthTranslation } from '@/lib/monthTranslations';
 
 interface RevenueData {
   month: string;
@@ -15,28 +16,14 @@ interface RevenueData {
 }
 
 export function RevenueChart() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState("12");
 
   // Helper function to get month name from month number
   const getMonthName = (monthNumber: number): string => {
-    const monthKeys = [
-      'months.full.january',
-      'months.full.february',
-      'months.full.march',
-      'months.full.april',
-      'months.full.may',
-      'months.full.june',
-      'months.full.july',
-      'months.full.august',
-      'months.full.september',
-      'months.full.october',
-      'months.full.november',
-      'months.full.december',
-    ];
-    return t(monthKeys[monthNumber - 1]);
+    return getMonthTranslation(monthNumber, language);
   };
 
   // Calculate current month stats

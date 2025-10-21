@@ -5212,7 +5212,11 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => {
     const savedLanguage = localStorage.getItem('language') as Language;
-    return savedLanguage || 'ar'; // Default to Arabic
+    // Validate saved language
+    if (savedLanguage && (savedLanguage === 'ar' || savedLanguage === 'en')) {
+      return savedLanguage;
+    }
+    return 'en'; // Default to English
   });
 
   useEffect(() => {
@@ -5237,7 +5241,25 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   };
 
   const t = (key: string): string => {
-    return translations[language][key as keyof typeof translations[typeof language]] || key;
+    // Debug logging
+    console.log('Translation request:', { key, language, availableLanguages: Object.keys(translations) });
+    
+    const currentTranslations = translations[language];
+    if (!currentTranslations) {
+      console.warn(`No translations found for language: ${language}`);
+      return key;
+    }
+    
+    const translation = currentTranslations[key as keyof typeof currentTranslations];
+    if (translation) {
+      console.log('Translation found:', { key, translation });
+      return translation;
+    }
+    
+    // Fallback to English if translation not found
+    const englishTranslation = translations.en[key as keyof typeof translations.en];
+    console.log('Using English fallback:', { key, englishTranslation });
+    return englishTranslation || key;
   };
 
   const isRTL = language === 'ar';

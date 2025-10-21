@@ -18,3 +18,4 @@ CREATE TABLE "skill_packages" (
     CONSTRAINT "skill_packages_pkey" PRIMARY KEY ("id")
 );
 
+

@@ -19,7 +19,12 @@
       "Bash(timeout 15 bash:*)",
       "Bash(npm install:*)",
       "Bash(npx prisma migrate:*)",
-      "Bash(node check-user.js:*)"
+      "Bash(node check-user.js:*)",
+      "Bash(node:*)",
+      "Bash(sed:*)",
+      "Read(//d//**)",
+      "Bash(awk:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

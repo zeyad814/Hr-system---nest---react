@@ -18,6 +18,7 @@ import { Target, Plus, Edit, Trash2, TrendingUp } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import api from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { getMonthName as getMonthTranslation } from '@/lib/monthTranslations';
 
 interface MonthlyTarget {
   id: string;
@@ -29,7 +30,7 @@ interface MonthlyTarget {
 }
 
 export default function MonthlyTargets() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -45,26 +46,17 @@ export default function MonthlyTargets() {
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
   const getMonthName = (month: number) => {
-    const monthKeys = [
-      'months.full.january',
-      'months.full.february',
-      'months.full.march',
-      'months.full.april',
-      'months.full.may',
-      'months.full.june',
-      'months.full.july',
-      'months.full.august',
-      'months.full.september',
-      'months.full.october',
-      'months.full.november',
-      'months.full.december',
-    ];
-    return t(monthKeys[month - 1]);
+    return getMonthTranslation(month, language);
   };
 
   useEffect(() => {
     loadTargets();
   }, []);
+
+  // Force re-render when language changes
+  useEffect(() => {
+    console.log('Language changed to:', language);
+  }, [language]);
 
   const loadTargets = async () => {
     try {
