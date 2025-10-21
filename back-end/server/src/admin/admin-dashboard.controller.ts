@@ -86,4 +86,35 @@ export class AdminDashboardController {
       return { revenue: 0 };
     }
   }
+
+  @Get('revenue-stats')
+  async getRevenueStats(
+    @Query('months') months?: string,
+    @Query('period') period?: string
+  ) {
+    try {
+      const monthsNumber = months ? parseInt(months, 10) : 6;
+      const periodType = period || 'last';
+      return await this.adminDashboardService.getRevenueStatsWithTargets(monthsNumber, periodType);
+    } catch (error) {
+      console.error('Error in getRevenueStats:', error);
+      return { data: [] };
+    }
+  }
+
+  @Get('job-stats')
+  async getJobStats() {
+    try {
+      return await this.adminDashboardService.getJobStats();
+    } catch (error) {
+      console.error('Error in getJobStats:', error);
+      return {
+        total: 0,
+        openJobs: 0,
+        underReview: 0,
+        completed: 0,
+        cancelled: 0
+      };
+    }
+  }
 }

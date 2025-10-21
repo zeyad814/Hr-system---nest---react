@@ -21,7 +21,9 @@ import AdminProfile from "@/pages/admin/Profile";
 import AdminJobs from "@/pages/admin/Jobs";
 import AdminJobDetails from "@/pages/admin/JobDetails";
 import AdminApplicantProfile from "@/pages/admin/ApplicantProfile";
-import AgoraSettings from "@/pages/admin/AgoraSettings";
+import MonthlyTargets from "@/pages/admin/MonthlyTargets";
+import SkillPackages from "@/pages/admin/SkillPackages";
+import InterviewScheduler from "@/pages/admin/InterviewScheduler";
 
 // HR pages
 import HRDashboard from "@/pages/hr/HRDashboard";
@@ -90,7 +92,9 @@ function App() {
         <Route path="/admin/contracts" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminContracts /></ProtectedRoute>} />
         <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminReports /></ProtectedRoute>} />
         <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminSettings /></ProtectedRoute>} />
-        <Route path="/admin/agora-settings" element={<ProtectedRoute allowedRoles={['ADMIN']}><AgoraSettings /></ProtectedRoute>} />
+        <Route path="/admin/monthly-targets" element={<ProtectedRoute allowedRoles={['ADMIN']}><MonthlyTargets /></ProtectedRoute>} />
+        <Route path="/admin/skill-packages" element={<ProtectedRoute allowedRoles={['ADMIN']}><SkillPackages /></ProtectedRoute>} />
+        <Route path="/admin/interviews" element={<ProtectedRoute allowedRoles={['ADMIN']}><InterviewScheduler /></ProtectedRoute>} />
         <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminProfile /></ProtectedRoute>} />
         <Route path="/admin/jobs" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminJobs /></ProtectedRoute>} />
         <Route path="/admin/jobs/:id" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminJobDetails /></ProtectedRoute>} />

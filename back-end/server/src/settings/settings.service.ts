@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateSettingsDto } from './dto/settings.dto';
+import { CreateMonthlyTargetDto, UpdateMonthlyTargetDto } from './dto/monthly-target.dto';
 
 @Injectable()
 export class SettingsService {
@@ -175,5 +176,77 @@ export class SettingsService {
   // Update notification preferences
   async updateNotificationPreferences(userId: string, preferences: any) {
     return this.updateSettings(userId, preferences);
+  }
+
+  // Monthly Target Management
+  async createMonthlyTarget(userId: string, dto: CreateMonthlyTargetDto) {
+    return this.prisma.monthlyTarget.create({
+      data: {
+        month: dto.month,
+        year: dto.year,
+        targetAmount: dto.targetAmount,
+        description: dto.description,
+        createdBy: userId,
+      },
+    });
+  }
+
+  async getMonthlyTargets(year?: number) {
+    const where = year ? { year } : {};
+    return this.prisma.monthlyTarget.findMany({
+      where,
+      orderBy: [{ year: 'desc' }, { month: 'asc' }],
+    });
+  }
+
+  async getMonthlyTarget(month: number, year: number) {
+    return this.prisma.monthlyTarget.findUnique({
+      where: {
+        month_year: {
+          month,
+          year,
+        },
+      },
+    });
+  }
+
+  async updateMonthlyTarget(id: string, dto: UpdateMonthlyTargetDto) {
+    return this.prisma.monthlyTarget.update({
+      where: { id },
+      data: {
+        month: dto.month,
+        year: dto.year,
+        targetAmount: dto.targetAmount,
+        description: dto.description,
+      },
+    });
+  }
+
+  async deleteMonthlyTarget(id: string) {
+    return this.prisma.monthlyTarget.delete({
+      where: { id },
+    });
+  }
+
+  async upsertMonthlyTarget(userId: string, dto: CreateMonthlyTargetDto) {
+    return this.prisma.monthlyTarget.upsert({
+      where: {
+        month_year: {
+          month: dto.month,
+          year: dto.year,
+        },
+      },
+      update: {
+        targetAmount: dto.targetAmount,
+        description: dto.description,
+      },
+      create: {
+        month: dto.month,
+        year: dto.year,
+        targetAmount: dto.targetAmount,
+        description: dto.description,
+        createdBy: userId,
+      },
+    });
   }
 }

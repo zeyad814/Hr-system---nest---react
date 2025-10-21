@@ -1095,8 +1095,8 @@ export class SalesService {
     return quarterlyData;
   }
 
-  private getMonthName(month: number): string {
-    const months = [
+  private getMonthName(month: number, language: 'ar' | 'en' = 'ar'): string {
+    const monthsAr = [
       'يناير',
       'فبراير',
       'مارس',
@@ -1110,6 +1110,23 @@ export class SalesService {
       'نوفمبر',
       'ديسمبر',
     ];
+
+    const monthsEn = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    const months = language === 'ar' ? monthsAr : monthsEn;
     return months[month - 1] || '';
   }
 }

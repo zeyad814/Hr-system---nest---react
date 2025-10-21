@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AgoraService } from '../agora/agora.service';
+// import { AgoraService } from '../agora/agora.service';
 import {
   CreateInterviewDto,
   UpdateInterviewDto,
@@ -15,7 +15,7 @@ import {
 export class InterviewsService {
   constructor(
     private prisma: PrismaService,
-    private agoraService: AgoraService
+    // private agoraService: AgoraService
   ) {}
 
   // Schedule a new interview
@@ -45,11 +45,11 @@ export class InterviewsService {
     let agoraChannelName: string | undefined;
     let agoraAppId: string | undefined;
     
-    if (data.type === 'VIDEO' && this.agoraService.isConfigured()) {
-      agoraChannelName = this.agoraService.generateChannelName(data.applicationId);
-      const agoraConfig = this.agoraService.getAgoraConfig();
-      agoraAppId = agoraConfig.appId;
-    }
+    // if (data.type === 'VIDEO' && this.agoraService.isConfigured()) {
+    //   agoraChannelName = this.agoraService.generateChannelName(data.applicationId);
+    //   const agoraConfig = this.agoraService.getAgoraConfig();
+    //   agoraAppId = agoraConfig.appId;
+    // }
 
     // Create interview
     const interview = await this.prisma.interview.create({
@@ -421,7 +421,7 @@ export class InterviewsService {
     return { message: 'Interview deleted successfully' };
   }
 
-  // Agora Integration Methods
+  // Agora Integration Methods - DISABLED
   
   /**
    * Generate Agora token for interview participant
@@ -460,25 +460,26 @@ export class InterviewsService {
       throw new BadRequestException('You are not authorized to join this interview');
     }
 
-    try {
-      const tokenResponse = this.agoraService.generateInterviewToken(
-        interviewId,
-        userId,
-        role
-      );
+    // try {
+    //   const tokenResponse = this.agoraService.generateInterviewToken(
+    //     interviewId,
+    //     userId,
+    //     role
+    //   );
 
-      // Update interview with token info
-      await this.prisma.interview.update({
-        where: { id: interviewId },
-        data: {
-          agoraToken: tokenResponse.token
-        }
-      });
+    //   // Update interview with token info
+    //   await this.prisma.interview.update({
+    //     where: { id: interviewId },
+    //     data: {
+    //       agoraToken: tokenResponse.token
+    //     }
+    //   });
 
-      return tokenResponse;
-    } catch (error) {
-      throw new BadRequestException('Failed to generate video call token');
-    }
+    //   return tokenResponse;
+    // } catch (error) {
+    //   throw new BadRequestException('Failed to generate video call token');
+    // }
+    throw new BadRequestException('Agora integration is disabled');
   }
 
   /**
@@ -515,23 +516,24 @@ export class InterviewsService {
       throw new BadRequestException('Recording is already in progress');
     }
 
-    try {
-      const uid = this.agoraService['generateUid'](userId);
-      const recordingId = await this.agoraService.startRecording(interview.agoraChannelName!, uid);
+    // try {
+    //   const uid = this.agoraService['generateUid'](userId);
+    //   const recordingId = await this.agoraService.startRecording(interview.agoraChannelName!, uid);
 
-      await this.prisma.interview.update({
-        where: { id: interviewId },
-        data: {
-          isRecording: true,
-          recordingId,
-          recordingStartedAt: new Date()
-        }
-      });
+    //   await this.prisma.interview.update({
+    //     where: { id: interviewId },
+    //     data: {
+    //       isRecording: true,
+    //       recordingId,
+    //       recordingStartedAt: new Date()
+    //     }
+    //   });
 
-      return { recordingId, message: 'Recording started successfully' };
-    } catch (error) {
-      throw new BadRequestException('Failed to start recording');
-    }
+    //   return { recordingId, message: 'Recording started successfully' };
+    // } catch (error) {
+    //   throw new BadRequestException('Failed to start recording');
+    // }
+    throw new BadRequestException('Agora integration is disabled');
   }
 
   /**
@@ -564,22 +566,23 @@ export class InterviewsService {
       throw new BadRequestException('Only interviewers can stop recording');
     }
 
-    try {
-      const recordingUrl = await this.agoraService.stopRecording(interview.recordingId);
+    // try {
+    //   const recordingUrl = await this.agoraService.stopRecording(interview.recordingId);
 
-      await this.prisma.interview.update({
-        where: { id: interviewId },
-        data: {
-          isRecording: false,
-          recordingUrl,
-          recordingEndedAt: new Date()
-        }
-      });
+    //   await this.prisma.interview.update({
+    //     where: { id: interviewId },
+    //     data: {
+    //       isRecording: false,
+    //       recordingUrl,
+    //       recordingEndedAt: new Date()
+    //     }
+    //   });
 
-      return { recordingUrl, message: 'Recording stopped successfully' };
-    } catch (error) {
-      throw new BadRequestException('Failed to stop recording');
-    }
+    //   return { recordingUrl, message: 'Recording stopped successfully' };
+    // } catch (error) {
+    //   throw new BadRequestException('Failed to stop recording');
+    // }
+    throw new BadRequestException('Agora integration is disabled');
   }
 
   /**
@@ -683,32 +686,33 @@ export class InterviewsService {
       role = isCandidate ? 'candidate' : 'interviewer';
     }
 
-    try {
-      const tokenResponse = this.agoraService.generateInterviewToken(
-        interviewId,
-        userId,
-        role
-      );
+    // try {
+    //   const tokenResponse = this.agoraService.generateInterviewToken(
+    //     interviewId,
+    //     userId,
+    //     role
+    //   );
 
-      // Update interview status to CONFIRMED if it was SCHEDULED
-      if (interview.status === 'SCHEDULED') {
-        await this.prisma.interview.update({
-          where: { id: interviewId },
-          data: {
-            status: 'CONFIRMED'
-          }
-        });
-      }
+    //   // Update interview status to CONFIRMED if it was SCHEDULED
+    //   if (interview.status === 'SCHEDULED') {
+    //     await this.prisma.interview.update({
+    //       where: { id: interviewId },
+    //       data: {
+    //         status: 'CONFIRMED'
+    //       }
+    //     });
+    //   }
 
-      return {
-        ...tokenResponse,
-        channelName: interview.agoraChannelName,
-        role: role,
-        interviewId: interviewId
-      };
-    } catch (error) {
-      throw new BadRequestException('Failed to join video interview');
-    }
+    //   return {
+    //     ...tokenResponse,
+    //     channelName: interview.agoraChannelName,
+    //     role: role,
+    //     interviewId: interviewId
+    //   };
+    // } catch (error) {
+    //   throw new BadRequestException('Failed to join video interview');
+    // }
+    throw new BadRequestException('Agora integration is disabled');
   }
 
   /**
@@ -803,24 +807,25 @@ export class InterviewsService {
 
     const role = isCandidate ? 'candidate' : 'interviewer';
 
-    try {
-      const tokenResponse = this.agoraService.generateInterviewToken(
-        interviewId,
-        userId,
-        role
-      );
+    // try {
+    //   const tokenResponse = this.agoraService.generateInterviewToken(
+    //     interviewId,
+    //     userId,
+    //     role
+    //   );
 
-      // Update interview with new token
-      await this.prisma.interview.update({
-        where: { id: interviewId },
-        data: {
-          agoraToken: tokenResponse.token
-        }
-      });
+    //   // Update interview with new token
+    //   await this.prisma.interview.update({
+    //     where: { id: interviewId },
+    //     data: {
+    //       agoraToken: tokenResponse.token
+    //     }
+    //   });
 
-      return tokenResponse;
-    } catch (error) {
-      throw new BadRequestException('Failed to refresh video call token');
-    }
+    //   return tokenResponse;
+    // } catch (error) {
+    //   throw new BadRequestException('Failed to refresh video call token');
+    // }
+    throw new BadRequestException('Agora integration is disabled');
   }
 }

@@ -43,7 +43,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { clientApiService } from "@/services/clientApi"
-import { AgoraVideoCall } from "@/components/agora/AgoraVideoCall"
 import { useLanguage } from "@/contexts/LanguageContext"
 
 interface Candidate {
@@ -623,16 +622,6 @@ const ClientCandidates = () => {
           </DialogContent>
         </Dialog>
         
-        {/* Video Call Component */}
-        {isVideoCallOpen && videoCallCandidate && (
-          <div className="fixed inset-0 z-50 bg-black">
-            <AgoraVideoCall
-              interviewId={videoCallCandidate.id.toString()}
-              channelName={videoCallCandidate.agoraChannelName!}
-              onLeave={handleVideoCallEnd}
-            />
-          </div>
-        )}
       </div>
     </MainLayout>
   )

@@ -26,7 +26,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -111,9 +111,12 @@ const HRJobs = () => {
 
   const loadClients = async () => {
     try {
-      const res = await api.get<Array<{ id: string; name?: string }>>("/clients");
+      const res = await api.get<Array<{ id: string; name?: string }>>("/client/list");
       setClients(res.data ?? []);
-    } catch {}
+    } catch (error) {
+      console.error('Error loading clients:', error);
+      setClients([]);
+    }
   };
 
   useEffect(() => {
@@ -258,7 +261,7 @@ const HRJobs = () => {
     j.location?.toLowerCase().includes(query.toLowerCase())
   );
 
-  const JobFormFields = () => (
+  const JobFormFields = useMemo(() => (
     <div className="space-y-4 max-h-96 overflow-y-auto">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -409,7 +412,7 @@ const HRJobs = () => {
         </Select>
       </div>
     </div>
-  );
+  ), [formData, t, clients]);
 
   return (
     <MainLayout userRole="hr" userName="سارة أحمد">

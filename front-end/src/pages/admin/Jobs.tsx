@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Briefcase, Plus, Search, MoreHorizontal, Building2, Edit, Trash2, Eye } from "lucide-react";
+import { Briefcase, Plus, Search, MoreHorizontal, Building2, Edit, Trash2, Eye, Package } from "lucide-react";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,9 +23,8 @@ type Job = {
   locationLink?: string;
   jobType: string;
   department?: string;
-  experienceLevel?: string;
+  description?: string;
   remoteWorkAvailable?: boolean;
-  description: string;
   requirements: string;
   requiredSkills?: string;
   salaryRange: string;
@@ -44,9 +43,8 @@ type JobFormData = {
   locationLink: string;
   jobType: string;
   department: string;
-  experienceLevel: string;
-  remoteWorkAvailable: boolean;
   description: string;
+  remoteWorkAvailable: boolean;
   requirements: string;
   requiredSkills: string;
   salaryRange: string;
@@ -65,6 +63,16 @@ const AdminJobs = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [clients, setClients] = useState<Array<{ id: string; name?: string }>>([]);
+  const [skillPackages, setSkillPackages] = useState<Array<any>>([]);
+  const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
+  
+  // Debug: Log when isAddOpen changes
+  useEffect(() => {
+    console.log('isAddOpen changed to:', isAddOpen);
+    console.log('Component re-rendered with isAddOpen:', isAddOpen);
+    console.log('skillPackages state:', skillPackages);
+    console.log('clients state:', clients);
+  }, [isAddOpen, skillPackages, clients]);
   const [formData, setFormData] = useState<JobFormData>({
     title: "",
     company: "",
@@ -72,9 +80,8 @@ const AdminJobs = () => {
     locationLink: "",
     jobType: "FULL_TIME",
     department: "",
-    experienceLevel: "ENTRY",
-    remoteWorkAvailable: false,
     description: "",
+    remoteWorkAvailable: false,
     requirements: "",
     requiredSkills: "",
     salaryRange: "",
@@ -98,9 +105,64 @@ const AdminJobs = () => {
 
   const loadClients = async () => {
     try {
-      const res = await api.get<Array<{ id: string; name?: string }>>("/clients");
+      console.log('Loading clients...');
+      console.log('API base URL:', api.defaults.baseURL);
+      console.log('Auth token:', localStorage.getItem('access_token') ? 'Present' : 'Missing');
+      
+      const res = await api.get<Array<{ id: string; name?: string }>>("/client/list");
+      console.log('Clients API response:', res);
+      console.log('Clients data:', res.data);
       setClients(res.data ?? []);
-    } catch {}
+    } catch (error) {
+      console.error('Error loading clients:', error);
+      console.error('Error details:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      setClients([]);
+    }
+  };
+
+  const loadSkillPackages = async () => {
+    try {
+      const res = await api.get("/skill-packages");
+      setSkillPackages(res.data ?? []);
+    } catch (error) {
+      console.error('Error loading skill packages:', error);
+      setSkillPackages([]);
+    }
+  };
+
+  const handlePackageSelect = async (packageId: string) => {
+    if (!packageId) return;
+
+    try {
+      const package_ = skillPackages.find(p => p.id === packageId);
+      if (package_) {
+        setSelectedPackage(package_);
+        
+        // Apply package to form
+        setFormData(prev => ({
+          ...prev,
+          description: package_.description || "",
+          requiredSkills: package_.skills,
+          requirements: package_.requirements,
+        }));
+
+        // Increment usage count
+        await api.post(`/skill-packages/${package_.id}/use`);
+
+        toast({
+          title: t('admin.skillPackages.applied'),
+          description: t('admin.skillPackages.appliedDesc'),
+        });
+      }
+    } catch (error) {
+      console.error('Error applying package:', error);
+      toast({
+        title: t('common.error'),
+        description: t('admin.skillPackages.applyError'),
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -111,9 +173,8 @@ const AdminJobs = () => {
       locationLink: "",
       jobType: "FULL_TIME",
       department: "",
-      experienceLevel: "ENTRY",
-      remoteWorkAvailable: false,
       description: "",
+      remoteWorkAvailable: false,
       requirements: "",
       requiredSkills: "",
       salaryRange: "",
@@ -123,9 +184,25 @@ const AdminJobs = () => {
   };
 
   const openAdd = async () => {
+    console.log('Opening add dialog...');
+    console.log('Current isAddOpen state:', isAddOpen);
     resetForm();
-    await loadClients();
+    
+    try {
+      await loadClients();
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    }
+    
+    try {
+      await loadSkillPackages();
+    } catch (error) {
+      console.error('Error loading skill packages:', error);
+    }
+    
+    console.log('About to set isAddOpen to true');
     setIsAddOpen(true);
+    console.log('setIsAddOpen(true) called');
   };
 
   const openEdit = async (job: Job) => {
@@ -136,9 +213,8 @@ const AdminJobs = () => {
       locationLink: job.locationLink || "",
       jobType: job.jobType,
       department: job.department || "",
-      experienceLevel: job.experienceLevel || "ENTRY",
+      description: job.description || "",
       remoteWorkAvailable: job.remoteWorkAvailable || false,
-      description: job.description,
       requirements: job.requirements,
       requiredSkills: job.requiredSkills || "",
       salaryRange: job.salaryRange,
@@ -156,7 +232,7 @@ const AdminJobs = () => {
   };
 
   const submitAdd = async () => {
-    if (!formData.title || !formData.company || !formData.location || !formData.description || !formData.requirements || !formData.salaryRange || !formData.applicationDeadline || !formData.clientId) {
+    if (!formData.title || !formData.company || !formData.location || !formData.requirements || !formData.salaryRange || !formData.applicationDeadline || !formData.clientId) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
       return;
     }
@@ -174,7 +250,7 @@ const AdminJobs = () => {
   };
 
   const submitEdit = async () => {
-    if (!selectedJob || !formData.title || !formData.company || !formData.location || !formData.description || !formData.requirements || !formData.salaryRange || !formData.applicationDeadline) {
+    if (!selectedJob || !formData.title || !formData.company || !formData.location || !formData.requirements || !formData.salaryRange || !formData.applicationDeadline) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
       return;
     }
@@ -231,8 +307,37 @@ const AdminJobs = () => {
     }
   };
 
-  const JobFormFields = () => (
+  const JobFormFields = () => {
+    console.log('JobFormFields rendering with clients:', clients);
+    return (
     <div className="space-y-4 max-h-96 overflow-y-auto">
+      {/* Skill Package Selector */}
+      {skillPackages && skillPackages.length > 0 && skillPackages.some(p => p.id && p.id.trim() !== '') && (
+        <Card className="bg-muted/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="h-4 w-4 text-primary" />
+              <Label className="font-semibold">{t('admin.skillPackages.usePackage')}</Label>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              {t('admin.skillPackages.usePackageDesc')}
+            </p>
+            <Select onValueChange={handlePackageSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('admin.skillPackages.selectPackage')} />
+              </SelectTrigger>
+              <SelectContent>
+                {skillPackages.filter(pkg => pkg.id && pkg.id.trim() !== '').map((pkg) => (
+                  <SelectItem key={pkg.id} value={pkg.id}>
+                    <span>{pkg.name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t('admin.jobs.jobTitle')} *</Label>
@@ -295,18 +400,13 @@ const AdminJobs = () => {
           />
         </div>
         <div className="space-y-2">
-          <Label>{t('admin.jobs.experienceLevel')}</Label>
-          <Select value={formData.experienceLevel} onValueChange={(value) => setFormData({...formData, experienceLevel: value})}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ENTRY">مبتدئ</SelectItem>
-              <SelectItem value="MID">متوسط</SelectItem>
-              <SelectItem value="SENIOR">خبير</SelectItem>
-              <SelectItem value="LEAD">قائد فريق</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label>{t('admin.jobs.description')}</Label>
+          <Textarea 
+            value={formData.description} 
+            onChange={(e) => setFormData({...formData, description: e.target.value})} 
+            placeholder={t('admin.jobs.descriptionPlaceholder')} 
+            rows={3}
+          />
         </div>
       </div>
 
@@ -319,15 +419,6 @@ const AdminJobs = () => {
         <Label htmlFor="remote">العمل عن بُعد متاح</Label>
       </div>
 
-      <div className="space-y-2">
-        <Label>وصف الوظيفة *</Label>
-        <Textarea 
-          value={formData.description} 
-          onChange={(e) => setFormData({...formData, description: e.target.value})} 
-          placeholder="وصف تفصيلي للوظيفة..." 
-          rows={3}
-        />
-      </div>
 
       <div className="space-y-2">
         <Label>المتطلبات *</Label>
@@ -375,14 +466,21 @@ const AdminJobs = () => {
             <SelectValue placeholder={t('admin.jobs.selectClient')} />
           </SelectTrigger>
           <SelectContent>
-            {clients.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name || c.id}</SelectItem>
-            ))}
+            {clients && clients.length > 0 ? (
+              clients.filter(client => client.id && client.id.trim() !== '').map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name || c.id}</SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no-clients" disabled>
+                {t('admin.jobs.noClientsAvailable')}
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <MainLayout userRole="admin" userName="Admin">
@@ -392,23 +490,48 @@ const AdminJobs = () => {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{t('admin.jobs.title')}</h1>
             <p className="text-sm sm:text-base text-muted-foreground">{t('admin.jobs.subtitle')}</p>
           </div>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-1 sm:gap-2 text-sm sm:text-base w-full sm:w-auto" onClick={openAdd} disabled={loading}>
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                {t('admin.jobs.addJob')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('admin.jobs.addNewJob')}</DialogTitle>
-              </DialogHeader>
-              <JobFormFields />
-              <DialogFooter>
-                <Button onClick={submitAdd}>{t('admin.jobs.saveJob')}</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="gap-1 sm:gap-2 text-sm sm:text-base w-full sm:w-auto" 
+            onClick={() => {
+              console.log('Button clicked!');
+              console.log('Current isAddOpen before openAdd:', isAddOpen);
+              openAdd();
+            }} 
+            disabled={loading}
+          >
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+            {t('admin.jobs.addJob')}
+          </Button>
+          
+          {isAddOpen && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center">
+              <div className="bg-background border rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">{t('admin.jobs.addNewJob')}</h2>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setIsAddOpen(false)}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                  {console.log('Custom modal is rendering with isAddOpen:', isAddOpen)}
+                  {console.log('skillPackages length:', skillPackages.length)}
+                  {JobFormFields()}
+                  <div className="flex justify-end gap-2 mt-6">
+                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+                      إلغاء
+                    </Button>
+                    <Button onClick={submitAdd}>
+                      {t('admin.jobs.saveJob')}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Edit Dialog */}
@@ -417,7 +540,7 @@ const AdminJobs = () => {
             <DialogHeader>
               <DialogTitle>{t('admin.jobs.editJob')}</DialogTitle>
             </DialogHeader>
-            <JobFormFields />
+            {JobFormFields()}
             <DialogFooter>
               <Button onClick={submitEdit}>{t('admin.jobs.saveChanges')}</Button>
             </DialogFooter>
@@ -438,11 +561,10 @@ const AdminJobs = () => {
                   <div><strong>{t('admin.jobs.location')}:</strong> {selectedJob.location}</div>
                   <div><strong>{t('admin.jobs.jobType')}:</strong> {selectedJob.jobType}</div>
                   <div><strong>{t('admin.jobs.department')}:</strong> {selectedJob.department || t('common.notSpecified')}</div>
-                  <div><strong>{t('admin.jobs.experienceLevel')}:</strong> {selectedJob.experienceLevel || t('common.notSpecified')}</div>
                   <div><strong>{t('admin.jobs.remoteWork')}:</strong> {selectedJob.remoteWorkAvailable ? t('admin.jobs.available') : t('admin.jobs.notAvailable')}</div>
                   <div><strong>{t('admin.jobs.salaryRange')}:</strong> {selectedJob.salaryRange}</div>
                 </div>
-                <div><strong>{t('admin.jobs.description')}:</strong><br/>{selectedJob.description}</div>
+                {selectedJob.description && <div><strong>{t('admin.jobs.description')}:</strong><br/>{selectedJob.description}</div>}
                 <div><strong>{t('admin.jobs.requirements')}:</strong><br/>{selectedJob.requirements}</div>
                 {selectedJob.requiredSkills && <div><strong>{t('admin.jobs.skills')}:</strong><br/>{selectedJob.requiredSkills}</div>}
                 <div><strong>{t('admin.jobs.applicationDeadline')}:</strong> {new Date(selectedJob.applicationDeadline).toLocaleDateString('ar-SA')}</div>
@@ -613,6 +735,6 @@ const AdminJobs = () => {
   );
 };
 
-export default AdminJobs;
+export { AdminJobs as default };
 
 

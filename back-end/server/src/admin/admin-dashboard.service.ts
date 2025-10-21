@@ -269,4 +269,112 @@ export class AdminDashboardService {
       throw error;
     }
   }
+
+  async getRevenueStatsWithTargets(months: number = 6, period: string = 'last') {
+    try {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+
+      let startMonth, startYear;
+      
+      if (period === 'first') {
+        // First N months of the current year
+        startMonth = 1;
+        startYear = currentYear;
+      } else {
+        // Last N months (default behavior)
+        startMonth = currentMonth - months + 1;
+        startYear = currentYear;
+        
+        if (startMonth <= 0) {
+          startMonth += 12;
+          startYear -= 1;
+        }
+      }
+
+      // Get revenue data
+      const revenues = await this.prisma.revenue.groupBy({
+        by: ['periodMonth', 'periodYear'],
+        _sum: {
+          amount: true,
+        },
+        where: {
+          OR: [
+            { periodYear: currentYear },
+            { periodYear: startYear },
+          ],
+        },
+        orderBy: [{ periodYear: 'asc' }, { periodMonth: 'asc' }],
+      });
+
+      // Get all monthly targets for the relevant period
+      const targets = await this.prisma.monthlyTarget.findMany({
+        where: {
+          OR: [
+            { year: currentYear },
+            { year: startYear },
+          ],
+        },
+      });
+
+      // Create a map for quick target lookup
+      const targetMap = new Map(
+        targets.map((t) => [`${t.year}-${t.month}`, Number(t.targetAmount)]),
+      );
+
+      // Generate data for the last N months
+      const data = [];
+      for (let i = 0; i < months; i++) {
+        let month = startMonth + i;
+        let year = startYear;
+
+        if (month > 12) {
+          month -= 12;
+          year += 1;
+        }
+
+        const key = `${year}-${month}`;
+        const revenueData = revenues.find(
+          (r) => r.periodMonth === month && r.periodYear === year,
+        );
+        const target = targetMap.get(key) || 0;
+
+        data.push({
+          month: month,
+          monthNumber: month,
+          year: year,
+          revenue: revenueData ? Number(revenueData._sum.amount) || 0 : 0,
+          target: target,
+        });
+      }
+
+      return { data };
+    } catch (error) {
+      console.error('Error fetching revenue stats with targets:', error);
+      throw error;
+    }
+  }
+
+  async getJobStats() {
+    try {
+      const [openJobs, closedJobs, hiredJobs] = await Promise.all([
+        this.prisma.job.count({ where: { status: 'OPEN' } }),
+        this.prisma.job.count({ where: { status: 'CLOSED' } }),
+        this.prisma.job.count({ where: { status: 'HIRED' } }),
+      ]);
+
+      const total = openJobs + closedJobs + hiredJobs;
+
+      return {
+        total,
+        openJobs,
+        closedJobs,
+        hiredJobs
+      };
+    } catch (error) {
+      console.error('Error fetching job stats:', error);
+      throw error;
+    }
+  }
 }

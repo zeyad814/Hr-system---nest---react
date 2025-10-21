@@ -8,9 +8,8 @@ export interface CreateJobDto {
   locationLink?: string;            // Location link (اختياري)
   jobType: string;                  // Job Type * (مطلوب)
   department?: string;              // Department
-  experienceLevel?: string;         // Experience Level
+  description?: string;             // Job Description (اختياري)
   remoteWorkAvailable?: boolean;    // Remote work available
-  description: string;              // Job Description * (مطلوب)
   requirements: string;             // Requirements * (مطلوب)
   requiredSkills?: string;          // Required Skills
   salaryRange: string;              // Salary Range * (مطلوب)
@@ -25,9 +24,8 @@ export interface UpdateJobDto {
   locationLink?: string;
   jobType?: string;
   department?: string;
-  experienceLevel?: string;
-  remoteWorkAvailable?: boolean;
   description?: string;
+  remoteWorkAvailable?: boolean;
   requirements?: string;
   requiredSkills?: string;
   salaryRange?: string;
@@ -49,9 +47,8 @@ export class JobsService {
         locationLink: data.locationLink,
         jobType: data.jobType,
         department: data.department,
-        experienceLevel: data.experienceLevel,
-        remoteWorkAvailable: data.remoteWorkAvailable || false,
         description: data.description,
+        remoteWorkAvailable: data.remoteWorkAvailable || false,
         requirements: data.requirements,
         requiredSkills: data.requiredSkills,
         salaryRange: data.salaryRange,

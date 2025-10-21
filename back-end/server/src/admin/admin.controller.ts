@@ -4,14 +4,11 @@ import { UserRole } from '../users/dto/user.dto';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { AgoraService } from '../agora/agora.service';
-
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminController {
   constructor(
-    private readonly admin: AdminService,
-    private readonly agoraService: AgoraService
+    private readonly admin: AdminService
   ) {}
   
   @Get()
@@ -67,7 +64,6 @@ export class AdminController {
         minPasswordLength: 8,
         maxLoginAttempts: 3
       },
-      agora: this.agoraService.getAgoraConfig()
     };
   }
 
@@ -83,42 +79,4 @@ export class AdminController {
     };
   }
 
-  @Post('agora/test-connection')
-  @Roles(UserRole.ADMIN)
-  async testAgoraConnection(@Body() credentials: { appId: string; appCertificate: string }) {
-    try {
-      // Test Agora connection by generating a test token
-      const testChannel = 'test_connection_' + Date.now();
-      const testUid = 12345;
-      
-      // Temporarily set credentials for testing
-      const originalAppId = process.env.AGORA_APP_ID;
-      const originalCertificate = process.env.AGORA_APP_CERTIFICATE;
-      
-      process.env.AGORA_APP_ID = credentials.appId;
-      process.env.AGORA_APP_CERTIFICATE = credentials.appCertificate;
-      
-      // Try to generate a token
-      const token = this.agoraService.generateRtcToken(testChannel, testUid, 'publisher', 3600);
-      
-      // Restore original credentials
-      process.env.AGORA_APP_ID = originalAppId;
-      process.env.AGORA_APP_CERTIFICATE = originalCertificate;
-      
-      if (token) {
-        return {
-          success: true,
-          message: 'تم الاتصال بـ Agora بنجاح',
-          testToken: token.substring(0, 20) + '...' // Show partial token for verification
-        };
-      } else {
-        throw new Error('Failed to generate token');
-      }
-    } catch (error) {
-      return {
-        success: false,
-        message: 'فشل في الاتصال بـ Agora: ' + error.message
-      };
-    }
-  }
 }

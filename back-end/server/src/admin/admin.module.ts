@@ -4,10 +4,8 @@ import { AdminService } from './admin.service';
 import { AdminDashboardController } from './admin-dashboard.controller';
 import { AdminDashboardService } from './admin-dashboard.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AgoraModule } from '../agora/agora.module';
-
 @Module({
-  imports: [PrismaModule, AgoraModule],
+  imports: [PrismaModule],
   controllers: [AdminController, AdminDashboardController],
   providers: [AdminService, AdminDashboardService],
   exports: [AdminService, AdminDashboardService],

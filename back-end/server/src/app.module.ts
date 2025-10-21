@@ -23,7 +23,7 @@ import { ReportsModule } from './reports/reports.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { SettingsModule } from './settings/settings.module';
-import { AgoraModule } from './agora/agora.module';
+import { SkillPackagesModule } from './skill-packages/skill-packages.module';
 
 @Module({
   imports: [
@@ -45,7 +45,7 @@ import { AgoraModule } from './agora/agora.module';
     ContractsModule,
     ActivitiesModule,
     SettingsModule,
-    AgoraModule,
+    SkillPackagesModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

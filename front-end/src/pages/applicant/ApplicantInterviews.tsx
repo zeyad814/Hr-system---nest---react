@@ -28,7 +28,6 @@ import {
 } from "lucide-react"
 import { MainLayout } from "@/components/layout/MainLayout"
 import { applicantApiService, Interview } from "@/services/applicantApi"
-import { AgoraVideoCall } from "@/components/agora/AgoraVideoCall"
 import { toast } from "sonner"
 import { useLanguage } from "@/contexts/LanguageContext"
 
@@ -584,16 +583,6 @@ const ApplicantInterviews = () => {
           </Dialog>
         )}
 
-        {/* Agora Video Call Component */}
-        {isVideoCallOpen && videoCallInterview && (
-          <div className="fixed inset-0 z-50 bg-black">
-            <AgoraVideoCall
-              interviewId={videoCallInterview.id}
-              channelName={videoCallInterview.agoraChannelName!}
-              onLeave={handleVideoCallEnd}
-            />
-          </div>
-        )}
       </div>
     </MainLayout>
   )

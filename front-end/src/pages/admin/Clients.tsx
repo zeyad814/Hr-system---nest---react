@@ -30,7 +30,7 @@ import {
   Mail,
   Calendar,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -65,7 +65,7 @@ const AdminClients = () => {
   const loadClients = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/clients");
+      const res = await api.get("/client/list");
       setClients(res.data ?? []);
     } finally {
       setLoading(false);
@@ -76,7 +76,11 @@ const AdminClients = () => {
     loadClients();
   }, []);
 
-  const handleAddClient = () => {
+  const handleFormChange = useCallback((field: keyof ClientItem, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleAddClient = useCallback(() => {
     setFormData({
       name: '',
       email: '',
@@ -89,24 +93,24 @@ const AdminClients = () => {
       industry: ''
     });
     setIsAddDialogOpen(true);
-  };
+  }, []);
 
-  const handleEditClient = (client: ClientItem) => {
+  const handleEditClient = useCallback((client: ClientItem) => {
     setEditingClient(client);
     setFormData({ ...client });
     setIsEditDialogOpen(true);
-  };
+  }, []);
 
   const handleSaveClient = async () => {
     try {
       setLoading(true);
       if (editingClient) {
         // Update existing client
-        await api.put(`/clients/${editingClient.id}`, formData);
+        await api.put(`/client/admin/${editingClient.id}`, formData);
         toast.success(t('admin.clients.saveSuccess'));
       } else {
         // Create new client
-        await api.post('/clients', formData);
+        await api.post('/client/admin', formData);
         toast.success(t('admin.clients.createSuccess'));
       }
       loadClients();
@@ -124,10 +128,10 @@ const AdminClients = () => {
 
   const handleDeleteClient = async () => {
     if (!clientToDelete) return;
-    
+
     try {
       setLoading(true);
-      await api.delete(`/clients/${clientToDelete.id}`);
+      await api.delete(`/client/admin/${clientToDelete.id}`);
       toast.success(t('admin.clients.deleteSuccess'));
       loadClients();
       setClientToDelete(null);
@@ -304,15 +308,16 @@ const AdminClients = () => {
       </div>
 
       {/* Add Client Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>{t('admin.clients.addClient')}</DialogTitle>
-            <DialogDescription>
-              {t('admin.clients.addClientDescription')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
+      {isAddDialogOpen && (
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>{t('admin.clients.addClient')}</DialogTitle>
+              <DialogDescription>
+                {t('admin.clients.addClientDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
                 {t('admin.clients.name')} *
@@ -320,7 +325,7 @@ const AdminClients = () => {
               <Input
                 id="name"
                 value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => handleFormChange('name', e.target.value)}
                 className="col-span-3"
                 placeholder={t('admin.clients.namePlaceholder')}
               />
@@ -433,18 +438,20 @@ const AdminClients = () => {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      )}
 
       {/* Edit Client Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>{t('admin.clients.editClient')}</DialogTitle>
-            <DialogDescription>
-              {t('admin.clients.editClientDescription')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
+      {isEditDialogOpen && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>{t('admin.clients.editClient')}</DialogTitle>
+              <DialogDescription>
+                {t('admin.clients.editClientDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-name" className="text-right">
                 {t('admin.clients.name')} *
@@ -565,7 +572,8 @@ const AdminClients = () => {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!clientToDelete} onOpenChange={() => setClientToDelete(null)}>

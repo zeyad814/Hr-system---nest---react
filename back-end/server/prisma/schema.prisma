@@ -87,9 +87,8 @@ model Job {
   locationLink          String?    // Location link (اختياري)
   jobType               String     // Job Type * (مطلوب)
   department            String?    // Department
-  experienceLevel       String?    // Experience Level
+  description           String?    // Job Description (اختياري)
   remoteWorkAvailable   Boolean    @default(false) // Remote work available
-  description           String     // Job Description * (مطلوب)
   requirements          String     // Requirements * (مطلوب)
   requiredSkills        String?    // Required Skills
   salaryRange           String     // Salary Range * (مطلوب)
@@ -559,6 +558,21 @@ model SalesTarget {
   updatedAt   DateTime @updatedAt
 }
 
+// Monthly Revenue Target Model
+model MonthlyTarget {
+  id          String   @id @default(uuid())
+  month       Int      // 1-12
+  year        Int
+  targetAmount Decimal
+  description String?
+  createdBy   String?  // User ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([month, year])
+  @@index([year, month])
+}
+
 // Sales Contracts Model (detailed)
 model SalesContract {
   id           String   @id @default(uuid())
@@ -730,4 +744,55 @@ model Profile {
   updatedAt       DateTime  @updatedAt
 
   @@map("profiles")
+}
+
+// Skill Packages Model
+model SkillPackage {
+  id                 String   @id @default(uuid())
+  name               String   // Package name (e.g., "React Developer Package")
+  description        String?  // Package description
+  skills             String   // JSON array or comma-separated skills
+  requirements       String   // Job requirements text
+  isDefault          Boolean  @default(false)
+  usageCount         Int      @default(0) // Track how many times used
+  createdBy          String?  // User ID who created it
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("skill_packages")
+}
+
+// Interview Scheduling Models
+model InterviewSchedule {
+  id                String   @id @default(uuid())
+  title             String   // Interview Title
+  description       String?  // Interview Description
+  candidateName     String   // Candidate Name
+  candidateEmail    String   // Candidate Email
+  interviewerName   String   // Interviewer Name
+  interviewerEmail  String   // Interviewer Email
+  scheduledDate     DateTime // Scheduled Date & Time
+  duration          Int      @default(60) // Duration in minutes
+  meetingType       MeetingType @default(GOOGLE_MEET) // Google Meet or Zoom
+  meetingLink       String?  // Generated meeting link
+  meetingId         String?  // Meeting ID
+  status            InterviewStatus @default(SCHEDULED)
+  notes             String?  // Additional notes
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model MeetingLink {
+  id                String   @id @default(uuid())
+  interviewId       String   // Reference to InterviewSchedule
+  meetingType       MeetingType
+  meetingLink       String   // Generated meeting link
+  meetingId         String?  // Meeting ID
+  expiresAt         DateTime? // Link expiration (if applicable)
+  createdAt         DateTime @default(now())
+}
+
+enum MeetingType {
+  GOOGLE_MEET
+  ZOOM
 }

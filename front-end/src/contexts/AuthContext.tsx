@@ -44,6 +44,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Validate token
           if (validateToken()) {
             setUser(parsedUser);
+            
+            // Only auto-navigate if not on login/register pages
+            const currentPath = window.location.pathname;
+            if (currentPath === '/login' || currentPath === '/register') {
+              // Don't auto-navigate from login/register pages
+              // Let the user stay on these pages if they want to
+            } else {
+              // Auto-navigate to appropriate dashboard based on role
+              switch (parsedUser.role) {
+                case 'ADMIN':
+                  if (currentPath !== '/admin') navigate('/admin');
+                  break;
+                case 'HR':
+                  if (currentPath !== '/hr') navigate('/hr');
+                  break;
+                case 'CLIENT':
+                  if (currentPath !== '/client') navigate('/client');
+                  break;
+                case 'APPLICANT':
+                  if (currentPath !== '/applicant') navigate('/applicant');
+                  break;
+                case 'SALES':
+                  if (currentPath !== '/sales') navigate('/sales');
+                  break;
+                default:
+                  if (currentPath !== '/dashboard') navigate('/dashboard');
+              }
+            }
           } else {
             // Try to refresh token
             const refreshed = await refreshToken();

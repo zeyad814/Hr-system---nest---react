@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run start:dev:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(timeout 30 npm run start:dev:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(timeout 5 bash:*)",
+      "Bash(tasklist:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(cat:*)",
+      "Bash(npm run dev:*)",
+      "Bash(docker-compose up:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

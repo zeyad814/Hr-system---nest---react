@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveTable, ResponsiveTableHeader, ResponsiveTableBody, ResponsiveTableRow, ResponsiveTableHead, ResponsiveTableCell } from "@/components/ui/responsive-table";
-import { AgoraVideoCall } from "@/components/agora/AgoraVideoCall";
 
 interface Applicant {
   id: string;
@@ -914,14 +913,6 @@ const HRCandidates = () => {
                   {t('hr.candidates.interviewWith')} {applicants.find(a => a.id === activeInterview.application?.applicant?.user?.id)?.name}
                 </DialogDescription>
               </DialogHeader>
-              <div className="h-96">
-                <AgoraVideoCall
-                   interviewId={activeInterview.id}
-                   channelName={`interview_${activeInterview.id}`}
-                   onLeave={handleEndVideoCall}
-                   userRole="host"
-                 />
-              </div>
             </DialogContent>
           </Dialog>
         )}

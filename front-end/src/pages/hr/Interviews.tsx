@@ -30,7 +30,6 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { AgoraVideoCall } from "@/components/agora/AgoraVideoCall";
 import { hrApiService } from "@/services/hrApi";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -752,13 +751,6 @@ const HRInterviews = () => {
                 {t('hr.interviews.conductVideoInterview')}
               </DialogDescription>
             </DialogHeader>
-            {videoCallInterview && (
-              <AgoraVideoCall
-                interviewId={videoCallInterview.id}
-                channelName={videoCallInterview.agoraChannelName || videoCallInterview.id}
-                onLeave={() => setIsVideoCallOpen(false)}
-              />
-            )}
           </DialogContent>
         </Dialog>
 

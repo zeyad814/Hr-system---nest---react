@@ -37,7 +37,75 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, isRTL } = useLanguage();
-  const { login } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
+
+  // If user is already authenticated, show a message instead of redirecting
+  if (isAuthenticated && user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl text-green-600">
+              {t('auth.alreadyLoggedIn') || 'مسجل دخول بالفعل'}
+            </CardTitle>
+            <CardDescription>
+              {t('auth.alreadyLoggedInDesc') || 'أنت مسجل دخول بالفعل. يمكنك الانتقال للوحة التحكم أو تسجيل الخروج.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                {t('auth.currentUser') || 'المستخدم الحالي'}: <strong>{user.name}</strong>
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                {t('auth.role') || 'الدور'}: <strong>{user.role}</strong>
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => {
+                  switch (user.role) {
+                    case 'ADMIN':
+                      navigate('/admin');
+                      break;
+                    case 'HR':
+                      navigate('/hr');
+                      break;
+                    case 'CLIENT':
+                      navigate('/client');
+                      break;
+                    case 'APPLICANT':
+                      navigate('/applicant');
+                      break;
+                    case 'SALES':
+                      navigate('/sales');
+                      break;
+                    default:
+                      navigate('/dashboard');
+                  }
+                }}
+                className="flex-1"
+              >
+                {t('auth.goToDashboard') || 'الذهاب للوحة التحكم'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  localStorage.removeItem('access_token');
+                  localStorage.removeItem('user');
+                  localStorage.removeItem('token_expiry');
+                  window.location.reload();
+                }}
+                className="flex-1"
+              >
+                {t('auth.logout') || 'تسجيل الخروج'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleLoginInputChange = (field: keyof LoginForm, value: string) => {
     setLoginForm(prev => ({ ...prev, [field]: value }));

@@ -16,7 +16,8 @@ import {
   Video,
   User,
   Archive,
-  Bell
+  Bell,
+  Package
 } from "lucide-react"
 
 import { useLanguage } from "@/contexts/LanguageContext"
@@ -43,7 +44,9 @@ const getAdminItems = (t: any) => [
   { title: t('nav.jobs'), url: "/admin/jobs", icon: Briefcase },
   { title: t('nav.contracts'), url: "/admin/contracts", icon: FileText },
   { title: t('nav.reports'), url: "/admin/reports", icon: FileBarChart },
-  { title: t('nav.agoraSettings'), url: "/admin/agora-settings", icon: Video },
+  { title: t('nav.targets'), url: "/admin/monthly-targets", icon: Target },
+  { title: t('nav.skillPackages'), url: "/admin/skill-packages", icon: Package },
+  { title: t('nav.interviews'), url: "/admin/interviews", icon: Video },
   { title: t('nav.systemSettings'), url: "/admin/settings", icon: Settings },
 ]
 
