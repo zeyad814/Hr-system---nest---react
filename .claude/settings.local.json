@@ -13,7 +13,13 @@
       "Bash(npx kill-port:*)",
       "Bash(cat:*)",
       "Bash(npm run dev:*)",
-      "Bash(docker-compose up:*)"
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker --version:*)",
+      "Bash(timeout 15 bash:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(node check-user.js:*)"
     ],
     "deny": [],
     "ask": []
