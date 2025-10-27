@@ -9,10 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { MainLayout } from '@/components/layout/MainLayout'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Eye, Edit, Users, MoreHorizontal, Briefcase, MapPin, Calendar, DollarSign, X } from 'lucide-react'
+import { Search, Eye, Edit, Users, MoreHorizontal, Briefcase, MapPin, Calendar, DollarSign, X } from 'lucide-react'
 import { clientApiService } from '@/services/clientApi'
 import { useLanguage } from '@/contexts/LanguageContext'
 
@@ -27,22 +24,6 @@ const ClientJobs = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [departmentFilter, setDepartmentFilter] = useState('all')
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [newJob, setNewJob] = useState({
-    title: '',
-    company: '',
-    location: '',
-    locationLink: '',
-    jobType: '',
-    department: '',
-    experienceLevel: '',
-    remoteWorkAvailable: false,
-    description: '',
-    requirements: '',
-    requiredSkills: '',
-    salaryRange: '',
-    applicationDeadline: ''
-  })
 
   const fetchJobs = async () => {
     try {
@@ -76,53 +57,6 @@ const ClientJobs = () => {
   useEffect(() => {
     fetchJobs()
   }, [])
-
-  const handleAddJob = async () => {
-    if (!newJob.title || !newJob.company || !newJob.location || !newJob.jobType || !newJob.description || !newJob.requirements || !newJob.salaryRange || !newJob.applicationDeadline) {
-      toast({ 
-        title: t('common.validation.incompleteData'), 
-        description: t('common.validation.fillRequired'), 
-        variant: "destructive" 
-      })
-      return
-    }
-
-    try {
-      const jobData = {
-        ...newJob,
-        remoteWorkAvailable: newJob.remoteWorkAvailable || false,
-        applicationDeadline: new Date(newJob.applicationDeadline).toISOString()
-      }
-      
-      const createdJob = await clientApiService.createClientJob(jobData)
-      setJobs(prev => [{
-        ...createdJob,
-        department: createdJob.department || createdJob.location,
-        applicationsCount: 0,
-        createdDate: new Date().toLocaleDateString('ar-SA'),
-        status: 'نشط'
-      }, ...prev])
-      setShowAddDialog(false)
-      setNewJob({
-        title: '',
-        company: '',
-        location: '',
-        locationLink: '',
-        jobType: '',
-        department: '',
-        experienceLevel: '',
-        remoteWorkAvailable: false,
-        description: '',
-        requirements: '',
-        requiredSkills: '',
-        salaryRange: '',
-        applicationDeadline: ''
-      })
-      toast({ title: t('common.success'), description: t('client.jobs.success.created') })
-    } catch (e) {
-      toast({ title: t('common.error'), description: t('client.jobs.errors.createFailed'), variant: "destructive" })
-    }
-  }
 
   const changeStatus = async (jobId: string, status: "OPEN" | "CLOSED" | "HIRED") => {
     try {
@@ -166,184 +100,6 @@ const ClientJobs = () => {
             <h1 className="text-3xl font-bold tracking-tight">{t('client.jobs.title')}</h1>
             <p className="text-muted-foreground">{t('client.jobs.subtitle')}</p>
           </div>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 ml-2" />
-                {t('client.jobs.actions.requestNew')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('client.jobs.dialog.title')}</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">{t('client.jobs.form.title')}</Label>
-                    <Input
-                      id="title"
-                      value={newJob.title}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder={t('client.jobs.form.titlePlaceholder')}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">{t('client.jobs.form.company')}</Label>
-                    <Input
-                      id="company"
-                      value={newJob.company}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, company: e.target.value }))}
-                      placeholder={t('client.jobs.form.companyPlaceholder')}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="location">{t('client.jobs.form.location')}</Label>
-                    <Input
-                      id="location"
-                      value={newJob.location}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, location: e.target.value }))}
-                      placeholder={t('client.jobs.form.locationPlaceholder')}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="locationLink">رابط الموقع</Label>
-                    <Input
-                      id="locationLink"
-                      value={newJob.locationLink}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, locationLink: e.target.value }))}
-                      placeholder="رابط خرائط جوجل (اختياري)"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="jobType">{t('client.jobs.form.jobType')}</Label>
-                    <Select value={newJob.jobType} onValueChange={(value) => setNewJob(prev => ({ ...prev, jobType: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('client.jobs.form.jobTypePlaceholder')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="FULL_TIME">{t('client.jobs.jobTypes.fullTime')}</SelectItem>
-                        <SelectItem value="PART_TIME">{t('client.jobs.jobTypes.partTime')}</SelectItem>
-                        <SelectItem value="CONTRACT">{t('client.jobs.jobTypes.contract')}</SelectItem>
-                        <SelectItem value="TEMPORARY">{t('client.jobs.jobTypes.temporary')}</SelectItem>
-                        <SelectItem value="INTERNSHIP">{t('client.jobs.jobTypes.internship')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">القسم</Label>
-                    <Select value={newJob.department} onValueChange={(value) => setNewJob(prev => ({ ...prev, department: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر القسم" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="تقنية المعلومات">تقنية المعلومات</SelectItem>
-                        <SelectItem value="التصميم">التصميم</SelectItem>
-                        <SelectItem value="المالية">المالية</SelectItem>
-                        <SelectItem value="الموارد البشرية">الموارد البشرية</SelectItem>
-                        <SelectItem value="التسويق">التسويق</SelectItem>
-                        <SelectItem value="المبيعات">المبيعات</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="experienceLevel">مستوى الخبرة</Label>
-                    <Select value={newJob.experienceLevel} onValueChange={(value) => setNewJob(prev => ({ ...prev, experienceLevel: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر مستوى الخبرة" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="مبتدئ">مبتدئ (0-2 سنة)</SelectItem>
-                        <SelectItem value="متوسط">متوسط (2-5 سنوات)</SelectItem>
-                        <SelectItem value="متقدم">متقدم (5-10 سنوات)</SelectItem>
-                        <SelectItem value="خبير">خبير (+10 سنوات)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="salaryRange">{t('client.jobs.form.salaryRange')}</Label>
-                    <Input
-                      id="salaryRange"
-                      value={newJob.salaryRange}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, salaryRange: e.target.value }))}
-                      placeholder={t('client.jobs.form.salaryRangePlaceholder')}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="applicationDeadline">{t('client.jobs.form.applicationDeadline')}</Label>
-                  <Input
-                    id="applicationDeadline"
-                    type="date"
-                    value={newJob.applicationDeadline}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, applicationDeadline: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">{t('client.jobs.form.description')}</Label>
-                  <Textarea
-                    id="description"
-                    value={newJob.description}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder={t('client.jobs.form.descriptionPlaceholder')}
-                    rows={3}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="requirements">{t('client.jobs.form.requirements')}</Label>
-                  <Textarea
-                    id="requirements"
-                    value={newJob.requirements}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, requirements: e.target.value }))}
-                    placeholder={t('client.jobs.form.requirementsPlaceholder')}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="requiredSkills">المهارات المطلوبة</Label>
-                  <Input
-                    id="requiredSkills"
-                    value={newJob.requiredSkills}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, requiredSkills: e.target.value }))}
-                    placeholder="مثال: React Native, Flutter, JavaScript, TypeScript"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="remoteWorkAvailable"
-                    checked={newJob.remoteWorkAvailable}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, remoteWorkAvailable: e.target.checked }))}
-                    className="rounded"
-                  />
-                  <Label htmlFor="remoteWorkAvailable">العمل عن بُعد متاح</Label>
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button onClick={handleAddJob}>
-                  {t('client.jobs.actions.add')}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">

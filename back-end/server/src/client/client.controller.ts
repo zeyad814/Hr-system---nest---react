@@ -181,7 +181,7 @@ export class ClientController {
       applicants: job._count?.applications || 0,
       views: 0, // TODO: Add views tracking
       submittedDate: job.createdAt.toISOString().split('T')[0],
-      experience: job.experienceLevel || 'غير محدد'
+      experience: 'غير محدد'
     }));
   }
 
@@ -202,6 +202,68 @@ export class ClientController {
       applicationDeadline: jobData.deadline ? new Date(jobData.deadline) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
     });
     return { job };
+  }
+
+  @Get('job-requests/:id')
+  @Roles('CLIENT')
+  async getJobRequest(@Request() req: any, @Param('id') jobId: string) {
+    const client = await this.clientService.getOrCreateClientForUser(req.user.sub);
+    const job = await this.clientService.getJobById(client.id, jobId);
+    
+    if (!job) {
+      throw new Error('Job request not found');
+    }
+    
+    return {
+      id: job.id,
+      title: job.title,
+      department: job.department || 'غير محدد',
+      description: job.description,
+      requirements: job.requirements ? job.requirements.split(',').map((r: string) => r.trim()) : [],
+      salary: job.salaryRange,
+      location: job.location,
+      type: job.jobType,
+      status: job.status === 'OPEN' ? 'نشط' : job.status === 'CLOSED' ? 'مغلق' : 'مكتمل',
+      postedDate: job.createdAt.toISOString().split('T')[0],
+      applicants: job._count?.applications || 0,
+      views: 0,
+      submittedDate: job.createdAt.toISOString().split('T')[0],
+      experience: 'غير محدد'
+    };
+  }
+
+  @Put('job-requests/:id')
+  @Roles('CLIENT')
+  async updateJobRequest(@Request() req: any, @Param('id') jobId: string, @Body() jobData: any) {
+    const client = await this.clientService.getOrCreateClientForUser(req.user.sub);
+    const job = await this.clientService.updateJob(client.id, jobId, {
+      title: jobData.title,
+      company: jobData.company || 'شركة العميل',
+      location: jobData.location,
+      jobType: jobData.type,
+      department: jobData.department,
+      experienceLevel: jobData.experience,
+      description: jobData.description,
+      requirements: Array.isArray(jobData.requirements) ? jobData.requirements.join(', ') : jobData.requirements,
+      salaryRange: jobData.salaryMin && jobData.salaryMax ? `${jobData.salaryMin} - ${jobData.salaryMax} ريال` : jobData.salary,
+      applicationDeadline: jobData.deadline ? new Date(jobData.deadline) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    });
+    return { job };
+  }
+
+  @Delete('job-requests/:id')
+  @Roles('CLIENT')
+  async deleteJobRequest(@Request() req: any, @Param('id') jobId: string) {
+    const client = await this.clientService.getOrCreateClientForUser(req.user.sub);
+    
+    // Check if job exists before deleting
+    const job = await this.clientService.getJobById(client.id, jobId);
+    if (!job) {
+      throw new Error('Job request not found');
+    }
+    
+    await this.clientService.deleteJob(client.id, jobId);
+    return { message: 'تم حذف طلب الوظيفة بنجاح' };
   }
 
   @Get('job-requests/stats')

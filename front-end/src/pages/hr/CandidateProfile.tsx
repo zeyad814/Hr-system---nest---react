@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
+import axios from 'axios';
 import hrApiService, { Applicant, JobApplication, Interview } from '../../services/hrApi';
 import {
   ArrowRight,
@@ -50,8 +51,13 @@ const CandidateProfile = () => {
   const fetchCandidateProfile = async (candidateId: string) => {
     try {
       setLoading(true);
-      const profile = await hrApiService.getApplicantProfile(id);
-      setCandidate(profile);
+      // Use the correct endpoint that expects userId
+      const response = await axios.get(`http://localhost:3000/api/applicants/${candidateId}/profile`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      setCandidate(response.data);
     } catch (error) {
       console.error('Error fetching candidate profile:', error);
       toast({
@@ -88,22 +94,110 @@ const CandidateProfile = () => {
     }
   };
 
-  const downloadResume = () => {
-    if (candidate?.resumeUrl) {
-      // Create a temporary link to download the file
+  const downloadResume = async () => {
+    if (!candidate?.resumeUrl) {
+      toast({
+        title: "خطأ",
+        description: "لا توجد سيرة ذاتية متاحة لهذا المرشح",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Handle different URL formats for file access
+      let fileUrl = candidate.resumeUrl;
+      
+      // If it's a relative path, construct the full URL
+      if (candidate.resumeUrl.startsWith('/uploads/')) {
+        fileUrl = `http://localhost:3000${candidate.resumeUrl}`;
+      }
+      // If it contains the API prefix, remove it
+      else if (candidate.resumeUrl.includes('http://localhost:3000/api/uploads/')) {
+        fileUrl = candidate.resumeUrl.replace('http://localhost:3000/api/', 'http://localhost:3000/');
+      }
+      
+      console.log('Attempting to download from URL:', fileUrl);
+      
+      // Use axios with authentication headers
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(fileUrl, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = candidate.resumeUrl;
+      link.href = url;
       link.download = `${candidate.user.name}_CV.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "تم التحميل",
+        description: `تم تحميل السيرة الذاتية لـ ${candidate.user.name}`,
+      });
+    } catch (error) {
+      console.error('Error downloading resume:', error);
+      
+      // More specific error messages
+      let errorMessage = "حدث خطأ أثناء تحميل السيرة الذاتية";
+      
+      if (error.response?.status === 404) {
+        errorMessage = "الملف غير موجود على الخادم";
+      } else if (error.response?.status === 403) {
+        errorMessage = "ليس لديك صلاحية للوصول إلى هذا الملف";
+      } else if (error.response?.status === 401) {
+        errorMessage = "يرجى تسجيل الدخول مرة أخرى";
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = "خطأ في الاتصال بالخادم";
+      }
+      
+      toast({
+        title: "خطأ في التحميل",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
-  const viewResume = () => {
-    if (candidate?.resumeUrl) {
+  const viewResume = async () => {
+    if (!candidate?.resumeUrl) {
+      toast({
+        title: "خطأ",
+        description: "لا توجد سيرة ذاتية متاحة لهذا المرشح",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Handle different URL formats for file access
+      let fileUrl = candidate.resumeUrl;
+      
+      // If it's a relative path, construct the full URL
+      if (candidate.resumeUrl.startsWith('/uploads/')) {
+        fileUrl = `http://localhost:3000${candidate.resumeUrl}`;
+      }
+      // If it contains the API prefix, remove it
+      else if (candidate.resumeUrl.includes('http://localhost:3000/api/uploads/')) {
+        fileUrl = candidate.resumeUrl.replace('http://localhost:3000/api/', 'http://localhost:3000/');
+      }
+      
       // Open in a new tab for viewing
-      window.open(candidate.resumeUrl, '_blank');
+      window.open(fileUrl, '_blank');
+    } catch (error) {
+      console.error('Error viewing resume:', error);
+      toast({
+        title: "خطأ في العرض",
+        description: "حدث خطأ أثناء عرض السيرة الذاتية",
+        variant: "destructive",
+      });
     }
   };
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, UseGuards, Request } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/dto/user.dto';
 import { AdminService } from './admin.service';
@@ -77,6 +77,27 @@ export class AdminController {
       success: true,
       message: 'تم حفظ الإعدادات بنجاح'
     };
+  }
+
+  @Get('profile')
+  @Roles(UserRole.ADMIN)
+  async getProfile(@Request() req: any) {
+    const userId = req.user.id;
+    return await this.admin.getAdminProfile(userId);
+  }
+
+  @Post('profile')
+  @Roles(UserRole.ADMIN)
+  async createProfile(@Request() req: any, @Body() createProfileDto: any) {
+    const userId = req.user.id;
+    return await this.admin.createAdminProfile(userId, createProfileDto);
+  }
+
+  @Put('profile')
+  @Roles(UserRole.ADMIN)
+  async updateProfile(@Request() req: any, @Body() updateProfileDto: any) {
+    const userId = req.user.id;
+    return await this.admin.updateAdminProfile(userId, updateProfileDto);
   }
 
 }

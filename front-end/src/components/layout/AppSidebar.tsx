@@ -47,6 +47,7 @@ const getAdminItems = (t: any) => [
   { title: t('nav.targets'), url: "/admin/monthly-targets", icon: Target },
   { title: t('nav.skillPackages'), url: "/admin/skill-packages", icon: Package },
   { title: t('nav.interviews'), url: "/admin/interviews", icon: Video },
+  { title: t('nav.profile'), url: "/admin/profile", icon: User },
   { title: t('nav.systemSettings'), url: "/admin/settings", icon: Settings },
 ]
 
@@ -71,7 +72,6 @@ const getSalesItems = (t: any) => [
 const getClientItems = (t: any) => [
   { title: t('nav.dashboard'), url: "/client", icon: Home },
   { title: t('nav.requestJob'), url: "/client/request-job", icon: Briefcase },
-  { title: t('nav.jobs'), url: "/client/jobs", icon: Briefcase },
   { title: t('nav.candidates'), url: "/client/candidates", icon: Users },
   { title: t('nav.contracts'), url: "/client/contracts", icon: FileText },
   { title: t('nav.profile'), url: "/client/profile", icon: User },

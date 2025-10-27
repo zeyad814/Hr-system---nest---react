@@ -154,6 +154,25 @@ const ClientRequestJob = () => {
     }
   };
 
+  const handleView = async (request: JobRequest) => {
+    try {
+      const jobDetails = await clientApiService.getJobRequest(request.id);
+      // You can implement a modal or navigate to a details page
+      toast({
+        title: t('client.requestJob.actions.view'),
+        description: `${t('client.requestJob.form.jobTitle')}: ${jobDetails.title}`,
+      });
+    } catch (error: any) {
+      console.error('Error fetching job details:', error);
+      const errorMessage = error.response?.data?.message || error.message || t('client.requestJob.errors.fetchFailed');
+      toast({
+        title: t('common.error'),
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleEdit = (request: JobRequest) => {
     setFormData({
       title: request.title || "",
@@ -183,11 +202,12 @@ const ClientRequestJob = () => {
         description: t('client.requestJob.success.deleted'),
       });
       fetchJobRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting job request:', error);
+      const errorMessage = error.response?.data?.message || error.message || t('client.requestJob.errors.deleteFailed');
       toast({
         title: t('common.error'),
-        description: t('client.requestJob.errors.deleteFailed'),
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -230,7 +250,7 @@ const ClientRequestJob = () => {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="jobTitle">{t('client.requestJob.form.jobTitle')}</Label>
+                    <Label htmlFor="jobTitle">{t('client.requestJob.form.jobTitle')} <span className="text-red-500">*</span></Label>
                     <Input
                       id="jobTitle"
                       placeholder={t('client.requestJob.form.jobTitlePlaceholder')}
@@ -240,7 +260,7 @@ const ClientRequestJob = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="department">{t('client.requestJob.form.department')}</Label>
+                    <Label htmlFor="department">{t('client.requestJob.form.department')} <span className="text-red-500">*</span></Label>
                     <Select value={formData.department} onValueChange={(value) => setFormData({...formData, department: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder={t('client.requestJob.form.departmentPlaceholder')} />
@@ -258,7 +278,7 @@ const ClientRequestJob = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="jobDescription">{t('client.requestJob.form.description')}</Label>
+                  <Label htmlFor="jobDescription">{t('client.requestJob.form.description')} <span className="text-red-500">*</span></Label>
                   <Textarea
                     id="jobDescription"
                     placeholder={t('client.requestJob.form.descriptionPlaceholder')}
@@ -270,7 +290,7 @@ const ClientRequestJob = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="location">{t('client.requestJob.form.location')}</Label>
+                    <Label htmlFor="location">{t('client.requestJob.form.location')} <span className="text-red-500">*</span></Label>
                     <Select value={formData.location} onValueChange={(value) => setFormData({...formData, location: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder={t('client.requestJob.form.locationPlaceholder')} />
@@ -375,6 +395,10 @@ const ClientRequestJob = () => {
                       onChange={(e) => setFormData({...formData, positions: parseInt(e.target.value) || 1})}
                     />
                   </div>
+                </div>
+
+                <div className="text-sm text-muted-foreground mb-4">
+                  <span className="text-red-500">*</span> {t('client.requestJob.form.requiredFields')}
                 </div>
 
                 <div className="flex gap-4 pt-4">
@@ -518,7 +542,13 @@ const ClientRequestJob = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="h-8 w-8 p-0" title={t('client.requestJob.actions.view')}>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-8 w-8 p-0" 
+                            title={t('client.requestJob.actions.view')}
+                            onClick={() => handleView(request)}
+                          >
                             <Eye className="h-3 w-3" />
                           </Button>
                           <Button 

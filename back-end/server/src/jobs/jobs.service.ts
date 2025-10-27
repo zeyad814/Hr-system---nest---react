@@ -106,7 +106,11 @@ export class JobsService {
 
   async update(id: string, data: UpdateJobDto) {
     await this.findOne(id);
-    return this.prisma.job.update({ where: { id }, data });
+
+    // Remove fields that don't exist in the Job model
+    const { experienceLevel, ...validData } = data as any;
+
+    return this.prisma.job.update({ where: { id }, data: validData });
   }
 
   async changeStatus(id: string, status: 'OPEN' | 'CLOSED' | 'HIRED') {

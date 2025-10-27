@@ -25,6 +25,7 @@ import {
   Calendar,
   Wifi,
   WifiOff,
+  Package,
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import api from "@/lib/api";
@@ -81,6 +82,8 @@ const HRJobs = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [clients, setClients] = useState<Array<{ id: string; name?: string }>>([]);
+  const [skillPackages, setSkillPackages] = useState<Array<any>>([]);
+  const [selectedPackage, setSelectedPackage] = useState<any>(null);
   const { toast } = useToast();
   const [formData, setFormData] = useState<JobFormData>({
     title: "",
@@ -119,6 +122,50 @@ const HRJobs = () => {
     }
   };
 
+  const loadSkillPackages = async () => {
+    try {
+      const res = await api.get("/skill-packages");
+      setSkillPackages(res.data ?? []);
+    } catch (error) {
+      console.error('Error loading skill packages:', error);
+      setSkillPackages([]);
+    }
+  };
+
+  const handlePackageSelect = async (packageId: string) => {
+    if (!packageId) return;
+
+    try {
+      const package_ = skillPackages.find(p => p.id === packageId);
+      if (package_) {
+        setSelectedPackage(package_);
+
+        // Apply package to form
+        setFormData(prev => ({
+          ...prev,
+          description: package_.description || "",
+          requiredSkills: package_.skills,
+          requirements: package_.requirements,
+        }));
+
+        // Increment usage count
+        await api.post(`/skill-packages/${package_.id}/use`);
+
+        toast({
+          title: t('hr.jobs.skillPackageApplied'),
+          description: t('hr.jobs.skillPackageAppliedDesc'),
+        });
+      }
+    } catch (error) {
+      console.error('Error applying package:', error);
+      toast({
+        title: t('common.error'),
+        description: t('hr.jobs.skillPackageApplyError'),
+        variant: "destructive"
+      });
+    }
+  };
+
   useEffect(() => {
     loadJobs();
   }, []);
@@ -145,29 +192,36 @@ const HRJobs = () => {
   const openAdd = async () => {
     resetForm();
     await loadClients();
+    await loadSkillPackages();
     setIsAddOpen(true);
   };
 
   const openEdit = async (job: Job) => {
-    setFormData({
-      title: job.title,
-      company: job.company,
-      location: job.location,
-      locationLink: job.locationLink || "",
-      jobType: job.jobType,
-      department: job.department || "",
-      experienceLevel: job.experienceLevel || "ENTRY",
-      remoteWorkAvailable: job.remoteWorkAvailable || false,
-      description: job.description,
-      requirements: job.requirements,
-      requiredSkills: job.requiredSkills || "",
-      salaryRange: job.salaryRange,
-      applicationDeadline: job.applicationDeadline.split('T')[0],
-      clientId: job.clientId
-    });
-    setSelectedJob(job);
-    await loadClients();
-    setIsEditOpen(true);
+    try {
+      setFormData({
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        locationLink: job.locationLink || "",
+        jobType: job.jobType,
+        department: job.department || "",
+        experienceLevel: job.experienceLevel || "ENTRY",
+        remoteWorkAvailable: job.remoteWorkAvailable || false,
+        description: job.description,
+        requirements: job.requirements,
+        requiredSkills: job.requiredSkills || "",
+        salaryRange: job.salaryRange,
+        applicationDeadline: job.applicationDeadline ? job.applicationDeadline.split('T')[0] : "",
+        clientId: job.clientId
+      });
+      setSelectedJob(job);
+      await loadClients();
+      await loadSkillPackages();
+      setIsEditOpen(true);
+    } catch (error) {
+      console.error('Error in openEdit:', error);
+      toast({ title: "خطأ", description: "حدث خطأ أثناء فتح نافذة التعديل", variant: "destructive" });
+    }
   };
 
   const openView = (job: Job) => {
@@ -411,8 +465,35 @@ const HRJobs = () => {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Skill Package Selector */}
+      {skillPackages && skillPackages.length > 0 && skillPackages.some(p => p.id && p.id.trim() !== '') && (
+        <Card className="bg-muted/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="h-4 w-4 text-primary" />
+              <Label className="font-semibold">{t('hr.jobs.useSkillPackage')}</Label>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              {t('hr.jobs.useSkillPackageDesc')}
+            </p>
+            <Select onValueChange={handlePackageSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('hr.jobs.selectSkillPackage')} />
+              </SelectTrigger>
+              <SelectContent>
+                {skillPackages.filter(pkg => pkg.id && pkg.id.trim() !== '').map((pkg) => (
+                  <SelectItem key={pkg.id} value={pkg.id}>
+                    <span>{pkg.name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
     </div>
-  ), [formData, t, clients]);
+  ), [formData, t, clients, skillPackages]);
 
   return (
     <MainLayout userRole="hr" userName="سارة أحمد">
@@ -434,7 +515,7 @@ const HRJobs = () => {
               <DialogHeader>
                 <DialogTitle>{t('hr.jobs.addNewTitle')}</DialogTitle>
               </DialogHeader>
-              <JobFormFields />
+              {JobFormFields}
               <DialogFooter>
                 <Button onClick={submitAdd}>{t('hr.jobs.save')}</Button>
               </DialogFooter>
@@ -448,7 +529,7 @@ const HRJobs = () => {
             <DialogHeader>
               <DialogTitle>{t('hr.jobs.editTitle')}</DialogTitle>
             </DialogHeader>
-            <JobFormFields />
+            {JobFormFields}
             <DialogFooter>
               <Button onClick={submitEdit}>{t('hr.jobs.saveChanges')}</Button>
             </DialogFooter>

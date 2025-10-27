@@ -24,7 +24,9 @@
       "Bash(sed:*)",
       "Read(//d//**)",
       "Bash(awk:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(expr:*)"
     ],
     "deny": [],
     "ask": []

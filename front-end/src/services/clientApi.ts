@@ -477,6 +477,11 @@ export const clientApiService = {
     return response.data;
   },
 
+  getJobRequest: async (requestId: string) => {
+    const response = await clientApi.get(`/client/job-requests/${requestId}`);
+    return response.data;
+  },
+
   createJobRequest: async (requestData: Partial<JobRequest>) => {
     const response = await clientApi.post('/client/job-requests', requestData);
     return response.data;

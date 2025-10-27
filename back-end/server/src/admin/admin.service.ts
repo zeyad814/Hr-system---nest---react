@@ -54,4 +54,59 @@ export class AdminService {
     );
     return rows.map((r) => ({ date: r.date, count: Number(r.count) }));
   }
+
+  async getAdminProfile(userId: string) {
+    const profile = await this.prisma.profile.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return profile;
+  }
+
+  async createAdminProfile(userId: string, createProfileDto: any) {
+    const profile = await this.prisma.profile.create({
+      data: {
+        userId,
+        ...createProfileDto,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return profile;
+  }
+
+  async updateAdminProfile(userId: string, updateProfileDto: any) {
+    const profile = await this.prisma.profile.update({
+      where: { userId },
+      data: updateProfileDto,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return profile;
+  }
 }

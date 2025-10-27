@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useLanguage } from '@/contexts/LanguageContext';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Search, 
@@ -74,6 +76,7 @@ interface Applicant {
 
 const HRCandidates = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -248,7 +251,10 @@ const HRCandidates = () => {
   };
 
   const handleViewCandidate = (candidate: Applicant) => {
-    window.open(`/hr/candidates/${candidate.id}`, '_blank');
+    // Use userId instead of id for the profile route
+    const profileId = candidate.userId || candidate.id;
+    // Navigate in the same tab using React Router
+    navigate(`/hr/candidates/${profileId}`);
   };
 
   const handleDownloadResume = async (candidate: Applicant) => {
@@ -262,7 +268,28 @@ const HRCandidates = () => {
     }
 
     try {
-      const response = await hrApiService.downloadResume(candidate.resumeUrl);
+      // Handle different URL formats for file access
+      let fileUrl = candidate.resumeUrl;
+      
+      // If it's a relative path, construct the full URL
+      if (candidate.resumeUrl.startsWith('/uploads/')) {
+        fileUrl = `http://localhost:3000${candidate.resumeUrl}`;
+      }
+      // If it contains the API prefix, remove it
+      else if (candidate.resumeUrl.includes('http://localhost:3000/api/uploads/')) {
+        fileUrl = candidate.resumeUrl.replace('http://localhost:3000/api/', 'http://localhost:3000/');
+      }
+      
+      console.log('Attempting to download from URL:', fileUrl);
+      
+      // Use axios with authentication headers
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(fileUrl, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
       
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
@@ -280,9 +307,23 @@ const HRCandidates = () => {
       });
     } catch (error) {
       console.error('Error downloading resume:', error);
+      
+      // More specific error messages
+      let errorMessage = "حدث خطأ أثناء تحميل السيرة الذاتية";
+      
+      if (error.response?.status === 404) {
+        errorMessage = "الملف غير موجود على الخادم";
+      } else if (error.response?.status === 403) {
+        errorMessage = "ليس لديك صلاحية للوصول إلى هذا الملف";
+      } else if (error.response?.status === 401) {
+        errorMessage = "يرجى تسجيل الدخول مرة أخرى";
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = "خطأ في الاتصال بالخادم";
+      }
+      
       toast({
         title: "خطأ في التحميل",
-        description: "حدث خطأ أثناء تحميل السيرة الذاتية",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -290,13 +331,13 @@ const HRCandidates = () => {
 
   const updateApplicantStatus = async (applicantId: string, status: string) => {
     try {
-      // Find the applicant to get the applicationId
+      // Find the applicant to get the userId
       const applicant = applicants.find(a => a.id === applicantId);
       
-      if (!applicant?.applicationId) {
+      if (!applicant?.userId) {
         toast({
           title: "خطأ في التحديث",
-          description: "لا يمكن العثور على معرف الطلب",
+          description: "لا يمكن العثور على معرف المستخدم",
           variant: "destructive",
         });
         return;
@@ -313,7 +354,7 @@ const HRCandidates = () => {
       
       const englishStatus = statusMap[status] || status;
       
-      await hrApiService.updateApplicationStatus(applicant.applicationId, englishStatus);
+      await hrApiService.updateApplicantStatus(applicant.userId, englishStatus);
       
       setApplicants(prev => prev.map(applicant => 
         applicant.id === applicantId 
@@ -323,7 +364,7 @@ const HRCandidates = () => {
 
       toast({
         title: "تم التحديث",
-        description: `تم تحديث حالة المرشح إلى ${status}`,
+        description: `تم تحديث حالة ${applicant.name} إلى ${status}`,
       });
     } catch (error) {
       console.error('Error updating applicant status:', error);

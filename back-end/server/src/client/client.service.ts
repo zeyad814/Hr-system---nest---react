@@ -423,9 +423,12 @@ export class ClientService {
   }
 
   async createJob(clientId: string, jobData: any) {
+    // Remove fields that don't exist in the Job model
+    const { experienceLevel, ...validJobData } = jobData;
+    
     return this.prisma.job.create({
       data: {
-        ...jobData,
+        ...validJobData,
         clientId,
         applicationDeadline: new Date(jobData.applicationDeadline)
       }
@@ -436,6 +439,47 @@ export class ClientService {
     return this.prisma.job.update({
       where: { id: jobId },
       data: { status }
+    });
+  }
+
+  async getJobById(clientId: string, jobId: string) {
+    return this.prisma.job.findFirst({
+      where: { 
+        id: jobId,
+        clientId: clientId
+      },
+      include: {
+        _count: {
+          select: {
+            applications: true
+          }
+        }
+      }
+    });
+  }
+
+  async updateJob(clientId: string, jobId: string, jobData: any) {
+    // Remove fields that don't exist in the Job model
+    const { experienceLevel, ...validJobData } = jobData;
+    
+    return this.prisma.job.update({
+      where: { 
+        id: jobId,
+        clientId: clientId
+      },
+      data: {
+        ...validJobData,
+        applicationDeadline: jobData.applicationDeadline ? new Date(jobData.applicationDeadline) : undefined
+      }
+    });
+  }
+
+  async deleteJob(clientId: string, jobId: string) {
+    return this.prisma.job.delete({
+      where: { 
+        id: jobId,
+        clientId: clientId
+      }
     });
   }
 
