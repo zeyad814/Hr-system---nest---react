@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus, FileText, Calendar, DollarSign, Building2, Eye, Edit, Download, Clock, CheckCircle, XCircle } from "lucide-react";
-import { salesApiService, SalesContract } from "@/services/salesApi";
+import { salesApiService, SalesContract, SalesClient } from "@/services/salesApi";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSalesCurrency } from "@/contexts/SalesCurrencyContext";
 
 const SalesContracts = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { currency: selectedCurrency, getCurrencyIcon, getCurrencyName } = useSalesCurrency();
   const [contracts, setContracts] = useState<SalesContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,39 +25,270 @@ const SalesContracts = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<SalesContract | null>(null);
+  
+  // Mock clients data for dropdown
+  const mockClients = useMemo(() => [
+    { id: '1', name: 'شركة التطوير المتقدم', company: 'شركة التطوير المتقدم' },
+    { id: '2', name: 'مؤسسة الابتكار التقني', company: 'مؤسسة الابتكار التقني' },
+    { id: '3', name: 'مجموعة الأعمال الرقمية', company: 'مجموعة الأعمال الرقمية' },
+    { id: '4', name: 'شركة الحلول الذكية', company: 'شركة الحلول الذكية' },
+    { id: '5', name: 'مؤسسة التقنية الحديثة', company: 'مؤسسة التقنية الحديثة' },
+    { id: '6', name: 'شركة الاستشارات المهنية', company: 'شركة الاستشارات المهنية' },
+    { id: '7', name: 'مجموعة الخدمات المتكاملة', company: 'مجموعة الخدمات المتكاملة' },
+    { id: '8', name: 'شركة التكنولوجيا المتطورة', company: 'شركة التكنولوجيا المتطورة' }
+  ], []);
+  // Create form state
+  const [newTitle, setNewTitle] = useState('');
+  const [newClient, setNewClient] = useState('');
+  const [newType, setNewType] = useState('');
+  const [newValue, setNewValue] = useState('');
+  const [newStartDate, setNewStartDate] = useState('');
+  const [newEndDate, setNewEndDate] = useState('');
+  const [newCommission, setNewCommission] = useState('');
+  const [newPaymentTerms, setNewPaymentTerms] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  // Edit contract form state
+  const [isEditContractDialogOpen, setIsEditContractDialogOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<SalesContract | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editType, setEditType] = useState('');
+  const [editValue, setEditValue] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editCommission, setEditCommission] = useState('');
+  const [editPaymentTerms, setEditPaymentTerms] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  
+  // Add client form state
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientCompany, setNewClientCompany] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientLocation, setNewClientLocation] = useState('');
+  const [newClientIndustry, setNewClientIndustry] = useState('');
+  const [clients, setClients] = useState<SalesClient[]>([]);
 
-  useEffect(() => {
-    loadContracts();
-  }, []);
-
-  const loadContracts = async () => {
+  const loadContracts = useCallback(async () => {
     try {
       setLoading(true);
+      const clientsRes = await salesApiService.getClients();
+      setClients(clientsRes.clients || []);
       const data = await salesApiService.getContracts();
       setContracts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading contracts:', error);
-      toast.error(t('salesContracts.errors.loadFailed'));
       setContracts([]);
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadContracts();
+  }, [loadContracts]);
+
+  // Listen for localStorage changes (when clients are updated from other tabs/pages)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'salesClients' && e.newValue) {
+        const updatedClients = JSON.parse(e.newValue);
+        setClients(updatedClients);
+      }
+      if (e.key === 'salesContracts' && e.newValue) {
+        const updatedContracts = JSON.parse(e.newValue);
+        setContracts(updatedContracts);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const handleEditContract = (contract: SalesContract) => {
+    setEditingContract(contract);
+    setEditTitle(contract.title || '');
+    setEditType(contract.type || 'recruitment');
+    setEditValue(String(contract.value?.amount ?? ''));
+    setEditStartDate(contract.startDate || '');
+    setEditEndDate(contract.endDate || '');
+    setEditCommission(String(contract.commission ?? ''));
+    setEditPaymentTerms(contract.paymentTerms || '');
+    setEditDescription(contract.description || '');
+    setIsEditContractDialogOpen(true);
   };
 
-  const handleAddContract = async (contractData: any) => {
+  const handleUpdateContractLocal = () => {
+    if (!editingContract) return;
+    if (!editTitle.trim()) {
+      toast.error(t('salesContracts.validation.requiredFields'));
+      return;
+    }
+    if (!editType) {
+      toast.error('الرجاء اختيار نوع العقد');
+      return;
+    }
+    if (!editValue || Number(editValue) <= 0) {
+      toast.error('الرجاء إدخال قيمة العقد');
+      return;
+    }
+    if (!editingContract.client) {
+      toast.error('الرجاء اختيار العميل');
+      return;
+    }
+    const updated: SalesContract = {
+      ...editingContract,
+      title: editTitle,
+      type: editType,
+      value: { 
+        amount: Number(editValue) || 0, 
+        currency: editingContract.value?.currency || selectedCurrency 
+      },
+      startDate: editStartDate,
+      endDate: editEndDate,
+      commission: Number(editCommission) || 0,
+      paymentTerms: editPaymentTerms,
+      description: editDescription,
+      updatedAt: new Date().toISOString(),
+    } as SalesContract;
+
+    const updatedContracts = contracts.map(c => c.id === editingContract.id ? updated : c);
+    setContracts(updatedContracts);
+    localStorage.setItem('salesContracts', JSON.stringify(updatedContracts));
+    setIsEditContractDialogOpen(false);
+    setEditingContract(null);
+    toast.success(t('salesContracts.success.contractUpdated') || 'تم تحديث العقد بنجاح');
+  };
+
+  const handleDownloadContract = (contract: SalesContract) => {
     try {
-      await salesApiService.createContract(contractData);
-      toast.success(t('salesContracts.success.contractAdded'));
-      setIsAddDialogOpen(false);
-      loadContracts();
-    } catch (error) {
-      console.error('Error adding contract:', error);
-      toast.error(t('salesContracts.errors.addFailed'));
+      const dataStr = JSON.stringify(contract, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${contract.title || 'contract'}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error downloading contract:', e);
+      toast.error(t('salesContracts.errors.downloadFailed') || 'فشل تحميل الملف');
     }
   };
 
-  const handleUpdateContract = async (id: string, contractData: any) => {
+  const handleDownloadDocument = (doc: { name: string; fileUrl?: string }) => {
+    try {
+      if (doc.fileUrl) {
+        const a = document.createElement('a');
+        a.href = doc.fileUrl;
+        a.download = doc.name;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.click();
+      } else {
+        toast.error(t('salesContracts.errors.downloadFailed') || 'فشل تحميل الملف');
+      }
+    } catch (e) {
+      console.error('Error downloading document:', e);
+      toast.error(t('salesContracts.errors.downloadFailed') || 'فشل تحميل الملف');
+    }
+  };
+
+  const handleAddContract = async (contractData: {
+    title: string;
+    clientName: string;
+    type: string;
+    value: number;
+    startDate: string;
+    endDate: string | null;
+    commission: number | null;
+    paymentTerms: string | null;
+    description: string;
+  }) => {
+    try {
+      const selectedClient = clients.find((c) => c.name === contractData.clientName);
+      if (!selectedClient) {
+        toast.error(t('salesContracts.validation.selectClient') || 'يرجى اختيار عميل صحيح');
+        return;
+      }
+
+      // Map to API DTO
+      await salesApiService.createContract({
+        title: contractData.title,
+        clientId: selectedClient.id,
+        type: (contractData.type || 'RECRUITMENT').toUpperCase() as 'RECRUITMENT' | 'RETAINER' | 'PROJECT' | 'ANNUAL',
+        value: Number(contractData.value) || 0,
+        currency: selectedCurrency,
+        startDate: contractData.startDate,
+        endDate: contractData.endDate || contractData.startDate,
+        paymentTerms: contractData.paymentTerms || undefined,
+        commission: contractData.commission ?? undefined,
+        description: contractData.description || undefined,
+      });
+      toast.success(t('salesContracts.success.contractAdded'));
+      setIsAddDialogOpen(false);
+      // reset form
+      setNewTitle('');
+      setNewClient('');
+      setNewType('');
+      setNewValue('');
+      setNewStartDate('');
+      setNewEndDate('');
+      setNewCommission('');
+      setNewPaymentTerms('');
+      setNewDescription('');
+      loadContracts();
+    } catch (error) {
+      console.error('Error adding contract:', error);
+      toast.error(t('salesContracts.errors.createFailed') || 'فشل إضافة العقد');
+    }
+  };
+
+  const handleAddClient = () => {
+    if (!newClientName.trim()) {
+      toast.error('الرجاء إدخال اسم العميل');
+      return;
+    }
+
+    const newClient = {
+      id: Date.now().toString(),
+      name: newClientName,
+      company: newClientCompany || newClientName,
+      email: newClientEmail || undefined,
+      phone: newClientPhone || undefined,
+      location: newClientLocation || undefined,
+      industry: newClientIndustry || undefined,
+      status: 'LEAD' as const,
+      totalJobs: 0,
+      totalSpent: 0,
+      joinDate: new Date().toISOString().split('T')[0],
+      lastActivity: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedClients = [newClient, ...clients];
+    setClients(updatedClients);
+    
+    // Save to localStorage
+    localStorage.setItem('salesClients', JSON.stringify(updatedClients));
+    
+    setNewClient(newClient.name);
+    setIsAddClientDialogOpen(false);
+    
+    // Reset form
+    setNewClientName('');
+    setNewClientCompany('');
+    setNewClientEmail('');
+    setNewClientPhone('');
+    setNewClientLocation('');
+    setNewClientIndustry('');
+    
+    toast.success('تم إضافة العميل بنجاح');
+  };
+
+  const handleUpdateContract = async (id: string, contractData: Record<string, unknown>) => {
     try {
       await salesApiService.updateContract(id, contractData);
       toast.success(t('salesContracts.success.contractUpdated'));
@@ -69,11 +302,11 @@ const SalesContracts = () => {
   const handleDeleteContract = async (id: string) => {
      try {
        await salesApiService.deleteContract(id);
-       toast.success(t('salesContracts.success.contractDeleted'));
-       loadContracts();
+      await loadContracts();
+      toast.success(t('salesContracts.success.contractDeleted') || 'تم حذف العقد بنجاح');
      } catch (error) {
        console.error('Error deleting contract:', error);
-       toast.error(t('salesContracts.errors.deleteFailed'));
+      toast.error(t('salesContracts.errors.deleteFailed') || 'فشل حذف العقد');
      }
    };
 
@@ -126,7 +359,36 @@ const SalesContracts = () => {
     }
   };
 
-  const totalValue = filteredContracts.reduce((sum, contract) => sum + contract.value.amount, 0);
+  // Calculate statistics with selected currency
+  const totalValue = useMemo(() => {
+    return filteredContracts.reduce((sum, contract) => {
+      // Convert to selected currency (realistic conversion rates)
+      // All rates are relative to SAR as base currency
+      const conversionRates: Record<string, number> = {
+        'SAR': 1,      // Base currency
+        'AED': 0.98,   // 1 SAR = 0.98 AED (تقريباً متساويان)
+        'USD': 0.27,   // 1 SAR = 0.27 USD (تقريباً 3.7 SAR = 1 USD)
+        'EUR': 0.25,   // 1 SAR = 0.25 EUR (تقريباً 4 SAR = 1 EUR)
+        'INR': 22.5,   // 1 SAR = 22.5 INR (تقريباً)
+        'PKR': 75.2    // 1 SAR = 75.2 PKR (تقريباً)
+      };
+      
+      const contractCurrency = contract.value?.currency || 'SAR';
+      const contractAmount = contract.value?.amount || 0;
+      
+      // If contract is already in selected currency, no conversion needed
+      if (contractCurrency === selectedCurrency) {
+        return sum + contractAmount;
+      }
+      
+      // Convert from contract currency to SAR, then to selected currency
+      const sarAmount = contractAmount / (conversionRates[contractCurrency] || 1);
+      const convertedAmount = sarAmount * (conversionRates[selectedCurrency] || 1);
+      
+      return sum + convertedAmount;
+    }, 0);
+  }, [filteredContracts, selectedCurrency]);
+
   const activeContracts = filteredContracts.filter(c => c.status.toLowerCase() === 'active').length;
   const completedContracts = filteredContracts.filter(c => c.status.toLowerCase() === 'completed').length;
 
@@ -154,6 +416,7 @@ const SalesContracts = () => {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">{t('salesContracts.title')}</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">{t('salesContracts.description')}</p>
           </div>
+          <div className="flex items-center gap-3">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2 w-full sm:w-auto">
@@ -171,25 +434,36 @@ const SalesContracts = () => {
               </DialogHeader>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title" className="text-xs sm:text-sm">{t('salesContracts.fields.title')}</Label>
-                  <Input id="title" placeholder={t('salesContracts.placeholders.title')} className="text-xs sm:text-sm" />
+                  <Label htmlFor="title" className="text-xs sm:text-sm">{t('salesContracts.fields.title')} <span className="text-red-500">*</span></Label>
+                  <Input id="title" placeholder={t('salesContracts.placeholders.title')} className="text-xs sm:text-sm" value={newTitle} onChange={(e)=>setNewTitle(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="client" className="text-xs sm:text-sm">{t('salesContracts.fields.client')}</Label>
-                  <Select>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="client" className="text-xs sm:text-sm">{t('salesContracts.fields.client')} <span className="text-red-500">*</span></Label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-xs px-2 py-1 h-6"
+                      onClick={() => setIsAddClientDialogOpen(true)}
+                    >
+                      + إضافة عميل
+                    </Button>
+                  </div>
+                  <Select value={newClient} onValueChange={setNewClient}>
                     <SelectTrigger className="text-xs sm:text-sm">
                       <SelectValue placeholder={t('salesContracts.placeholders.selectClient')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from(new Set(contracts.map(c => c.client.name))).map(clientName => (
-                        <SelectItem key={clientName} value={clientName}>{clientName}</SelectItem>
+                      {clients.map(client => (
+                        <SelectItem key={client.id} value={client.name}>{client.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="type" className="text-xs sm:text-sm">{t('salesContracts.fields.type')}</Label>
-                  <Select>
+                  <Label htmlFor="type" className="text-xs sm:text-sm">{t('salesContracts.fields.type')} <span className="text-red-500">*</span></Label>
+                  <Select value={newType} onValueChange={setNewType}>
                     <SelectTrigger className="text-xs sm:text-sm">
                       <SelectValue placeholder={t('salesContracts.placeholders.selectType')} />
                     </SelectTrigger>
@@ -202,50 +476,80 @@ const SalesContracts = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="value" className="text-xs sm:text-sm">{t('salesContracts.fields.value')}</Label>
-                  <Input id="value" type="number" placeholder="0" className="text-xs sm:text-sm" />
+                  <Label htmlFor="value" className="text-xs sm:text-sm">{t('salesContracts.fields.value')} <span className="text-red-500">*</span></Label>
+                  <Input id="value" type="number" placeholder="0" className="text-xs sm:text-sm" value={newValue} onChange={(e)=>setNewValue(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="start-date" className="text-xs sm:text-sm">{t('salesContracts.fields.startDate')}</Label>
-                  <Input id="start-date" type="date" className="text-xs sm:text-sm" />
+                  <Label htmlFor="currency" className="text-xs sm:text-sm">{t('salesContracts.fields.currency')}</Label>
+                  <div className="flex items-center gap-3 px-3 py-2 bg-muted/50 rounded-md border">
+                    <span className="text-2xl">{getCurrencyIcon(selectedCurrency)}</span>
+                    <div>
+                      <p className="font-medium text-xs sm:text-sm">{getCurrencyName(selectedCurrency, language)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? 'العملة المحددة من الداشبورد' : 'Currency selected from dashboard'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="start-date" className="text-xs sm:text-sm">{t('salesContracts.fields.startDate')} <span className="text-red-500">*</span></Label>
+                  <Input id="start-date" type="date" className="text-xs sm:text-sm" value={newStartDate} onChange={(e)=>setNewStartDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="end-date" className="text-xs sm:text-sm">{t('salesContracts.fields.endDate')}</Label>
-                  <Input id="end-date" type="date" className="text-xs sm:text-sm" />
+                  <Input id="end-date" type="date" className="text-xs sm:text-sm" value={newEndDate} onChange={(e)=>setNewEndDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="commission" className="text-xs sm:text-sm">{t('salesContracts.fields.commission')}</Label>
-                  <Input id="commission" type="number" placeholder="0" className="text-xs sm:text-sm" />
+                  <Input id="commission" type="number" placeholder="0" className="text-xs sm:text-sm" value={newCommission} onChange={(e)=>setNewCommission(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="payment-terms" className="text-xs sm:text-sm">{t('salesContracts.fields.paymentTerms')}</Label>
-                  <Select>
+                  <Select value={newPaymentTerms} onValueChange={setNewPaymentTerms}>
                     <SelectTrigger className="text-xs sm:text-sm">
                       <SelectValue placeholder={t('salesContracts.placeholders.selectPaymentTerms')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="monthly">{t('salesContracts.paymentTerms.monthly')}</SelectItem>
                       <SelectItem value="quarterly">{t('salesContracts.paymentTerms.quarterly')}</SelectItem>
+                      <SelectItem value="annually">{t('salesContracts.paymentTerms.annually')}</SelectItem>
                       <SelectItem value="on-completion">{t('salesContracts.paymentTerms.onCompletion')}</SelectItem>
-                      <SelectItem value="milestone">{t('salesContracts.paymentTerms.milestone')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="col-span-1 md:col-span-2 space-y-2">
                   <Label htmlFor="description" className="text-xs sm:text-sm">{t('salesContracts.fields.description')}</Label>
-                  <Textarea id="description" placeholder={t('salesContracts.placeholders.description')} rows={4} className="text-xs sm:text-sm" />
+                  <Textarea id="description" placeholder={t('salesContracts.placeholders.description')} rows={4} className="text-xs sm:text-sm" value={newDescription} onChange={(e)=>setNewDescription(e.target.value)} />
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="text-xs sm:text-sm">
                   {t('common.cancel')}
                 </Button>
-                <Button onClick={() => setIsAddDialogOpen(false)} className="text-xs sm:text-sm">
+                <Button onClick={() => {
+                  if (!newTitle || !newClient || !newType || !newValue || !newStartDate) {
+                    toast.error(t('salesContracts.validation.required'));
+                    return;
+                  }
+                  handleAddContract({
+                    title: newTitle,
+                    clientName: newClient,
+                    type: newType,
+                    value: Number(newValue),
+                    startDate: newStartDate,
+                    endDate: newEndDate || null,
+                    commission: newCommission ? Number(newCommission) : null,
+                    paymentTerms: newPaymentTerms || null,
+                    description: newDescription || ''
+                  });
+                }} className="text-xs sm:text-sm">
                   {t('salesContracts.addContract')}
                 </Button>
               </div>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-2"><span className="text-red-500">*</span> {t('salesContracts.requiredFields') || 'الحقول المطلوبة'}</p>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -288,9 +592,13 @@ const SalesContracts = () => {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">{t('salesContracts.stats.totalValue')}</p>
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold">{totalValue.toLocaleString()} ر.س</p>
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold mt-1">
+                    {totalValue.toLocaleString()} {selectedCurrency}
+                  </p>
                 </div>
-                <DollarSign className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-orange-600 flex-shrink-0" />
+                <span className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-orange-600 flex-shrink-0 text-2xl leading-none">
+                  {getCurrencyIcon(selectedCurrency)}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -341,8 +649,8 @@ const SalesContracts = () => {
               </SelectTrigger>
               <SelectContent>
                         <SelectItem value="all">{t('salesContracts.filters.allClients')}</SelectItem>
-                        {Array.from(new Set(contracts.map(c => c.client.name))).map(clientName => (
-                          <SelectItem key={clientName} value={clientName}>{clientName}</SelectItem>
+                {clients.map(client => (
+                  <SelectItem key={client.id} value={client.name}>{client.name}</SelectItem>
                         ))}
                       </SelectContent>
             </Select>
@@ -376,7 +684,7 @@ const SalesContracts = () => {
                     <span className="truncate">{getTypeText(contract.type)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-                    <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="text-red-500 font-bold">{getCurrencyIcon(contract.value.currency as any)}</span>
                     <span className="truncate">{contract.value.amount.toLocaleString()} {contract.value.currency}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
@@ -497,7 +805,7 @@ const SalesContracts = () => {
                                           <p className="text-xs text-gray-600">تم الرفع: {doc.uploadDate}</p>
                                         </div>
                                       </div>
-                                      <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+                                      <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2" onClick={() => handleDownloadDocument(doc)}>
                                         <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                                         <span className="hidden sm:inline">تحميل</span>
                                         <span className="sm:hidden">تحميل</span>
@@ -524,13 +832,10 @@ const SalesContracts = () => {
                       )}
                     </DialogContent>
                   </Dialog>
-                  <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2" onClick={() => {
-                    // TODO: Implement edit functionality
-                    toast.info('سيتم إضافة وظيفة التحديث قريباً');
-                  }}>
+                  <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2" onClick={() => handleEditContract(contract)}>
                     <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">
+                  <Button variant="outline" size="sm" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2" onClick={() => handleDownloadContract(contract)}>
                     <Download className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
@@ -546,9 +851,261 @@ const SalesContracts = () => {
             <p className="text-sm sm:text-base text-gray-500 px-4">{t('salesContracts.noResults.description')}</p>
           </div>
         )}
+
+        {/* Edit Contract Dialog */}
+        <Dialog open={isEditContractDialogOpen} onOpenChange={setIsEditContractDialogOpen}>
+          <DialogContent className="w-[95vw] max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">{t('salesContracts.actions.edit') || 'تعديل العقد'}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                {t('salesContracts.actions.editDescription') || 'قم بتحديث بيانات العقد'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editTitle" className="text-xs sm:text-sm">{t('salesContracts.fields.title') || 'عنوان العقد'} <span className="text-red-500">*</span></Label>
+                <Input id="editTitle" className="text-xs sm:text-sm" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editClient" className="text-xs sm:text-sm">{t('salesContracts.fields.client') || 'العميل'} <span className="text-red-500">*</span></Label>
+                <Select 
+                  value={editingContract?.client?.id || ''} 
+                  onValueChange={(value) => {
+                    const selectedClient = clients.find(c => c.id === value || c.name === value);
+                    if (selectedClient && editingContract) {
+                      setEditingContract({
+                        ...editingContract,
+                        client: selectedClient
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder={editingContract?.client?.name || 'اختر العميل'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Ensure the current client is in the list */}
+                    {editingContract?.client && !clients.find(c => c.id === editingContract.client.id) && (
+                      <SelectItem value={editingContract.client.id}>
+                        {editingContract.client.name}
+                      </SelectItem>
+                    )}
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editType" className="text-xs sm:text-sm">{t('salesContracts.fields.type') || 'نوع العقد'} <span className="text-red-500">*</span></Label>
+                <Select value={editType} onValueChange={setEditType}>
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder="اختر نوع العقد" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recruitment">{t('salesContracts.types.recruitment') || 'عقد توظيف'}</SelectItem>
+                    <SelectItem value="retainer">{t('salesContracts.types.retainer') || 'عقد استشارات'}</SelectItem>
+                    <SelectItem value="project">{t('salesContracts.types.project') || 'عقد مشروع'}</SelectItem>
+                    <SelectItem value="annual">{t('salesContracts.types.annual') || 'عقد سنوي'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editValue" className="text-xs sm:text-sm">{t('salesContracts.fields.value') || 'قيمة العقد'} <span className="text-red-500">*</span></Label>
+                <Input id="editValue" type="number" className="text-xs sm:text-sm" value={editValue} onChange={(e) => setEditValue(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editCurrency" className="text-xs sm:text-sm">{t('salesContracts.fields.currency') || 'العملة'} <span className="text-red-500">*</span></Label>
+                <Select value={editingContract?.value?.currency || selectedCurrency} onValueChange={(value) => {
+                  if (editingContract) {
+                    setEditingContract({
+                      ...editingContract,
+                      value: {
+                        ...editingContract.value,
+                        currency: value
+                      }
+                    });
+                  }
+                }}>
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder={t('salesContracts.placeholders.selectCurrency')}>
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">{getCurrencyIcon(editingContract?.value?.currency || selectedCurrency)}</span>
+                        <span>{t(`salesContracts.currencies.${(editingContract?.value?.currency || selectedCurrency).toLowerCase()}`)}</span>
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SAR">
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">🇸🇦</span>
+                        <span>{t('salesContracts.currencies.sar')}</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="AED">
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">🇦🇪</span>
+                        <span>{t('salesContracts.currencies.aed')}</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="USD">
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">🇺🇸</span>
+                        <span>{t('salesContracts.currencies.usd')}</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="EUR">
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">🇪🇺</span>
+                        <span>{t('salesContracts.currencies.eur')}</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="INR">
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">🇮🇳</span>
+                        <span>{t('salesContracts.currencies.inr')}</span>
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="PKR">
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">🇵🇰</span>
+                        <span>{t('salesContracts.currencies.pkr')}</span>
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editStartDate" className="text-xs sm:text-sm">{t('salesContracts.fields.startDate') || 'تاريخ البداية'}</Label>
+                <Input id="editStartDate" type="date" className="text-xs sm:text-sm" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editEndDate" className="text-xs sm:text-sm">{t('salesContracts.fields.endDate') || 'تاريخ النهاية'}</Label>
+                <Input id="editEndDate" type="date" className="text-xs sm:text-sm" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editCommission" className="text-xs sm:text-sm">{t('salesContracts.fields.commission') || 'نسبة العمولة'}</Label>
+                <Input id="editCommission" type="number" className="text-xs sm:text-sm" value={editCommission} onChange={(e) => setEditCommission(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPaymentTerms" className="text-xs sm:text-sm">{t('salesContracts.fields.paymentTerms') || 'شروط الدفع'}</Label>
+                <Select value={editPaymentTerms} onValueChange={setEditPaymentTerms}>
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder={t('salesContracts.placeholders.paymentTerms') || 'اختر شروط الدفع'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">{t('salesContracts.paymentTerms.monthly') || 'شهري'}</SelectItem>
+                    <SelectItem value="quarterly">{t('salesContracts.paymentTerms.quarterly') || 'ربعي'}</SelectItem>
+                    <SelectItem value="annually">{t('salesContracts.paymentTerms.annually') || 'سنوي'}</SelectItem>
+                    <SelectItem value="on-completion">{t('salesContracts.paymentTerms.onCompletion') || 'عند الإنجاز'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="editDescription" className="text-xs sm:text-sm">{t('salesContracts.fields.description') || 'الوصف'}</Label>
+                <Textarea id="editDescription" className="text-xs sm:text-sm" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setIsEditContractDialogOpen(false)} className="text-xs sm:text-sm">
+                {t('salesClients.form.cancel') || 'إلغاء'}
+              </Button>
+              <Button onClick={handleUpdateContractLocal} className="text-xs sm:text-sm">
+                {t('salesClients.form.update') || 'تحديث'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Client Dialog */}
+        <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
+          <DialogContent className="w-[95vw] max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">إضافة عميل جديد</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                أدخل بيانات العميل الجديد
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="clientName" className="text-xs sm:text-sm">اسم العميل <span className="text-red-500">*</span></Label>
+                <Input 
+                  id="clientName" 
+                  placeholder="أدخل اسم العميل" 
+                  className="text-xs sm:text-sm" 
+                  value={newClientName} 
+                  onChange={(e) => setNewClientName(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientCompany" className="text-xs sm:text-sm">اسم الشركة</Label>
+                <Input 
+                  id="clientCompany" 
+                  placeholder="أدخل اسم الشركة" 
+                  className="text-xs sm:text-sm" 
+                  value={newClientCompany} 
+                  onChange={(e) => setNewClientCompany(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientEmail" className="text-xs sm:text-sm">البريد الإلكتروني</Label>
+                <Input 
+                  id="clientEmail" 
+                  type="email" 
+                  placeholder="أدخل البريد الإلكتروني" 
+                  className="text-xs sm:text-sm" 
+                  value={newClientEmail} 
+                  onChange={(e) => setNewClientEmail(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientPhone" className="text-xs sm:text-sm">رقم الهاتف</Label>
+                <Input 
+                  id="clientPhone" 
+                  placeholder="أدخل رقم الهاتف" 
+                  className="text-xs sm:text-sm" 
+                  value={newClientPhone} 
+                  onChange={(e) => setNewClientPhone(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientLocation" className="text-xs sm:text-sm">الموقع</Label>
+                <Input 
+                  id="clientLocation" 
+                  placeholder="أدخل الموقع" 
+                  className="text-xs sm:text-sm" 
+                  value={newClientLocation} 
+                  onChange={(e) => setNewClientLocation(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientIndustry" className="text-xs sm:text-sm">الصناعة</Label>
+                <Input 
+                  id="clientIndustry" 
+                  placeholder="أدخل الصناعة" 
+                  className="text-xs sm:text-sm" 
+                  value={newClientIndustry} 
+                  onChange={(e) => setNewClientIndustry(e.target.value)} 
+                />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setIsAddClientDialogOpen(false)} className="text-xs sm:text-sm">
+                إلغاء
+              </Button>
+              <Button onClick={handleAddClient} className="text-xs sm:text-sm">
+                إضافة العميل
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
 };
 
 export default SalesContracts;
+// Edit Contract Dialog
+// Note: Placed before export if UI library requires placement, otherwise can be in JSX above

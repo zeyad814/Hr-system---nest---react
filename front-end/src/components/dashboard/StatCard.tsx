@@ -9,6 +9,7 @@ interface StatCardProps {
   icon: LucideIcon
   description?: string
   gradient?: boolean
+  currencyIcon?: string
 }
 
 export function StatCard({
@@ -18,7 +19,8 @@ export function StatCard({
   changeType = "neutral",
   icon: Icon,
   description,
-  gradient = false
+  gradient = false,
+  currencyIcon
 }: StatCardProps) {
   const getChangeColor = () => {
     switch (changeType) {
@@ -50,7 +52,11 @@ export function StatCard({
             )}
           </div>
           <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon className="h-6 w-6 text-primary" />
+            {currencyIcon ? (
+              <span className="text-2xl text-red-500 font-bold">{currencyIcon}</span>
+            ) : (
+              <Icon className="h-6 w-6 text-primary" />
+            )}
           </div>
         </div>
       </CardContent>

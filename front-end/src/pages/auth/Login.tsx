@@ -156,7 +156,7 @@ const Login = () => {
       hr: { email: 'hr@test.com', password: 'Pass123!' },
       sales: { email: 'sales@test.com', password: 'Pass123!' },
       client: { email: 'client@test.com', password: 'Pass123!' },
-      applicant: { email: 'applicant@test.com', password: 'Pass123!' }
+      applicant: { email: 'applicant@test.com', password: '123456' }
     };
     
     const credentials = testCredentials[role.toLowerCase()];

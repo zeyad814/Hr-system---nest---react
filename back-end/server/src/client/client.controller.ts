@@ -81,6 +81,69 @@ export class ClientController {
   async getWithUser(@Param('id') id: string) {
     return this.clientService.findOneWithUser(id);
   }
+
+  // Admin endpoints for managing client notes, reminders, contracts, revenues
+  @Get(':id/notes')
+  @Roles('ADMIN', 'SALES')
+  async getClientNotes(@Param('id') clientId: string) {
+    return await this.clientService.getNotes(clientId);
+  }
+
+  @Post(':id/notes')
+  @Roles('ADMIN', 'SALES')
+  async addClientNote(@Param('id') clientId: string, @Body() createNoteDto: CreateNoteDto) {
+    const note = await this.clientService.addNote(clientId, createNoteDto);
+    return {
+      message: 'تم إضافة الملاحظة بنجاح',
+      note,
+    };
+  }
+
+  @Get(':id/reminders')
+  @Roles('ADMIN', 'SALES')
+  async getClientReminders(@Param('id') clientId: string) {
+    return await this.clientService.getReminders(clientId);
+  }
+
+  @Post(':id/reminders')
+  @Roles('ADMIN', 'SALES')
+  async addClientReminder(@Param('id') clientId: string, @Body() createReminderDto: CreateReminderDto) {
+    const reminder = await this.clientService.addReminder(clientId, createReminderDto);
+    return {
+      message: 'تم إضافة التذكير بنجاح',
+      reminder,
+    };
+  }
+
+  @Get(':id/contracts')
+  @Roles('ADMIN', 'SALES')
+  async getClientContracts(@Param('id') clientId: string) {
+    return await this.clientService.getContracts(clientId);
+  }
+
+  @Post(':id/contracts')
+  @Roles('ADMIN', 'SALES')
+  async addClientContract(@Param('id') clientId: string, @Body() createContractDto: CreateContractDto) {
+    const contract = await this.clientService.addContract(clientId, createContractDto);
+    return { contract };
+  }
+
+  @Get(':id/revenues')
+  @Roles('ADMIN', 'SALES')
+  async getClientRevenues(@Param('id') clientId: string) {
+    return await this.clientService.getRevenues(clientId);
+  }
+
+  @Post(':id/revenues')
+  @Roles('ADMIN', 'SALES')
+  async addClientRevenue(@Param('id') clientId: string, @Body() createRevenueDto: CreateRevenueDto) {
+    const revenue = await this.clientService.addRevenue(clientId, createRevenueDto);
+    return {
+      message: 'تم إضافة الإيراد بنجاح',
+      revenue,
+    };
+  }
+
   // Dashboard endpoints
   @Get('dashboard/stats')
   @Roles('CLIENT')
@@ -198,7 +261,7 @@ export class ClientController {
       experienceLevel: jobData.experience,
       description: jobData.description,
       requirements: Array.isArray(jobData.requirements) ? jobData.requirements.join(', ') : jobData.requirements,
-      salaryRange: jobData.salaryMin && jobData.salaryMax ? `${jobData.salaryMin} - ${jobData.salaryMax} ريال` : jobData.salary,
+      salaryRange: jobData.salaryRange || (jobData.salaryMin && jobData.salaryMax ? `${jobData.salaryMin} - ${jobData.salaryMax} ريال` : jobData.salary),
       applicationDeadline: jobData.deadline ? new Date(jobData.deadline) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
     });
     return { job };
@@ -245,7 +308,7 @@ export class ClientController {
       experienceLevel: jobData.experience,
       description: jobData.description,
       requirements: Array.isArray(jobData.requirements) ? jobData.requirements.join(', ') : jobData.requirements,
-      salaryRange: jobData.salaryMin && jobData.salaryMax ? `${jobData.salaryMin} - ${jobData.salaryMax} ريال` : jobData.salary,
+      salaryRange: jobData.salaryRange || (jobData.salaryMin && jobData.salaryMax ? `${jobData.salaryMin} - ${jobData.salaryMax} ريال` : jobData.salary),
       applicationDeadline: jobData.deadline ? new Date(jobData.deadline) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
     return { job };

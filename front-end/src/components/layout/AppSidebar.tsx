@@ -17,7 +17,9 @@ import {
   User,
   Archive,
   Bell,
-  Package
+  Package,
+  MapPin,
+  FileCheck
 } from "lucide-react"
 
 import { useLanguage } from "@/contexts/LanguageContext"
@@ -56,15 +58,20 @@ const getHrItems = (t: any) => [
   { title: t('nav.jobs'), url: "/hr/jobs", icon: Briefcase },
   { title: t('nav.candidates'), url: "/hr/candidates", icon: Users },
   { title: t('nav.interviews'), url: "/hr/interviews", icon: Calendar },
+  { title: t('nav.contracts') || 'المقابلات', url: "/hr/contracts", icon: FileText },
+  { title: t('nav.skillPackages'), url: "/hr/skill-packages", icon: Package },
   { title: t('nav.reports'), url: "/hr/reports", icon: BarChart3 },
   { title: t('nav.profile'), url: "/hr/profile", icon: User },
 ]
 
 const getSalesItems = (t: any) => [
   { title: t('nav.dashboard'), url: "/sales", icon: Home },
+  { title: t('nav.clients'), url: "/sales/clients", icon: Users },
+  { title: t('nav.candidates') || 'المرشحون', url: "/sales/candidates", icon: Users },
   { title: t('nav.contracts'), url: "/sales/contracts", icon: FileText },
   { title: t('nav.revenue'), url: "/sales/revenue", icon: DollarSign },
   { title: t('nav.targets'), url: "/sales/targets", icon: Target },
+  { title: t('nav.offersReview') || 'مراجعة العروض', url: "/sales/offers-review", icon: FileCheck },
   //{ title: t('nav.reminders'), url: "/sales/reminders", icon: Bell },
   { title: t('nav.profile'), url: "/sales/profile", icon: User },
 ]
@@ -72,6 +79,8 @@ const getSalesItems = (t: any) => [
 const getClientItems = (t: any) => [
   { title: t('nav.dashboard'), url: "/client", icon: Home },
   { title: t('nav.requestJob'), url: "/client/request-job", icon: Briefcase },
+  { title: t('nav.departments'), url: "/client/departments", icon: Building2 },
+  { title: t('nav.locations'), url: "/client/locations", icon: MapPin },
   { title: t('nav.candidates'), url: "/client/candidates", icon: Users },
   { title: t('nav.contracts'), url: "/client/contracts", icon: FileText },
   { title: t('nav.profile'), url: "/client/profile", icon: User },
@@ -82,6 +91,7 @@ const getApplicantItems = (t: any) => [
   { title: t('nav.jobs'), url: "/applicant/jobs", icon: Briefcase },
   { title: t('nav.applications'), url: "/applicant/applications", icon: FileText },
   { title: t('nav.interviews'), url: "/applicant/interviews", icon: Calendar },
+  { title: t('nav.contracts') || 'عقودي', url: "/applicant/contracts", icon: FileText },
   { title: t('nav.profile'), url: "/applicant/profile", icon: User },
 ]
 
@@ -188,3 +198,5 @@ export function AppSidebar({ userRole = "admin" }: { userRole?: string }) {
     </Sidebar>
   )
 }
+
+export default AppSidebar;

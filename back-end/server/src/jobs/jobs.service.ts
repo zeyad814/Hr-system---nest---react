@@ -30,6 +30,7 @@ export interface UpdateJobDto {
   requiredSkills?: string;
   salaryRange?: string;
   applicationDeadline?: Date;
+  clientId?: string;
 }
 
 export type ApplicationStatus = 'PENDING' | 'INTERVIEW' | 'REJECTED' | 'HIRED';
@@ -130,10 +131,24 @@ export class JobsService {
     });
   }
 
-  async applyToJob(jobId: string, applicantId: string) {
+  async applyToJob(jobId: string, userId: string) {
     await this.findOne(jobId);
+    // Map the authenticated user to the Applicant record
+    const applicant = await this.prisma.applicant.findUnique({ where: { userId } });
+    if (!applicant) {
+      throw new NotFoundException('Applicant profile not found');
+    }
+
+    // Optional: avoid duplicate applications
+    const existing = await this.prisma.jobApplication.findFirst({
+      where: { jobId, applicantId: applicant.id },
+    });
+    if (existing) {
+      return existing;
+    }
+
     return this.prisma.jobApplication.create({
-      data: { jobId, applicantId, status: 'PENDING' },
+      data: { jobId, applicantId: applicant.id, status: 'PENDING' },
     });
   }
 

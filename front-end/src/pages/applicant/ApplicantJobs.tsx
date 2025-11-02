@@ -40,22 +40,32 @@ const ApplicantJobs = () => {
   const { t } = useLanguage()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState("")
+  const [locationFilter, setLocationFilter] = useState("")
+  const [salaryMin, setSalaryMin] = useState("")
+  const [salaryMax, setSalaryMax] = useState("")
 
   const [sortBy, setSortBy] = useState("newest")
   const [savedJobs, setSavedJobs] = useState<string[]>(["1", "3"])
   const [appliedJobs, setAppliedJobs] = useState<string[]>([])
   const [applyingJobs, setApplyingJobs] = useState<string[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
+  const [visibleCount, setVisibleCount] = useState(10)
   const [loading, setLoading] = useState(true)
 
 
-  // Load jobs from API
+  // Load jobs and current applications from API
   useEffect(() => {
-    const loadJobs = async () => {
+    const load = async () => {
       try {
         setLoading(true)
-        const data = await applicantApiService.getAvailableJobs()
-        setJobs(data)
+        const [jobsData, apps] = await Promise.all([
+          applicantApiService.getAvailableJobs(),
+          applicantApiService.getMyApplications().catch(() => [])
+        ])
+        setJobs(jobsData)
+        if (Array.isArray(apps)) {
+          setAppliedJobs(apps.map(a => a.jobId))
+        }
       } catch (error) {
         console.error('Error loading jobs:', error)
         toast.error(t('applicant.jobs.loadError'))
@@ -64,7 +74,7 @@ const ApplicantJobs = () => {
       }
     }
 
-    loadJobs()
+    load()
   }, [])
 
 
@@ -85,12 +95,14 @@ const ApplicantJobs = () => {
     setApplyingJobs(prev => [...prev, jobId])
 
     try {
-      await applicantApiService.applyToJob({ jobId })
+      // Use the jobs controller endpoint for simpler apply
+      await applicantApiService.applyToJobByJobId(jobId)
       setAppliedJobs(prev => [...prev, jobId])
       toast.success(t('applicant.jobs.applySuccess'))
     } catch (error) {
       console.error('Error applying to job:', error)
-      toast.error(t('applicant.jobs.applyError'))
+      const message = (error as any)?.response?.data?.message
+      toast.error(Array.isArray(message) ? message[0] : (message || t('applicant.jobs.applyError')))
     } finally {
       setApplyingJobs(prev => prev.filter(id => id !== jobId))
     }
@@ -98,11 +110,44 @@ const ApplicantJobs = () => {
 
 
 
+  const uniqueLocations = Array.from(new Set(jobs.map(j => j.location).filter(Boolean)))
+
+  const parseSalaryRange = (range?: string): { min?: number; max?: number } => {
+    if (!range) return {}
+    // Examples: "5000 - 7000", "SAR 8,000 – 12,000", "10000+"
+    const nums = (range.match(/\d[\d,]*/g) || []).map(n => Number(n.replace(/,/g, "")))
+    if (nums.length === 0) return {}
+    if (nums.length === 1) return { min: nums[0], max: nums[0] }
+    return { min: Math.min(nums[0], nums[1]), max: Math.max(nums[0], nums[1]) }
+  }
+
   const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         job.client.name.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    return matchesSearch
+    const q = searchTerm.toLowerCase()
+    const matchesSearch =
+      job.title.toLowerCase().includes(q) ||
+      job.client.name.toLowerCase().includes(q)
+
+    if (!matchesSearch) return false
+
+    // Location filter
+    if (locationFilter && locationFilter !== '__ALL__' && job.location !== locationFilter) return false
+
+    // Salary filter
+    const { min: jobMin, max: jobMax } = parseSalaryRange((job as any).salaryRange)
+    const minVal = salaryMin ? Number(salaryMin) : undefined
+    const maxVal = salaryMax ? Number(salaryMax) : undefined
+
+    if (minVal !== undefined) {
+      // if job has only max or min, treat missing as the other
+      const effectiveMax = jobMax ?? jobMin
+      if (effectiveMax !== undefined && effectiveMax < minVal) return false
+    }
+    if (maxVal !== undefined) {
+      const effectiveMin = jobMin ?? jobMax
+      if (effectiveMin !== undefined && effectiveMin > maxVal) return false
+    }
+
+    return true
   })
 
   const sortedJobs = [...filteredJobs].sort((a, b) => {
@@ -162,6 +207,39 @@ const ApplicantJobs = () => {
                       <SelectItem value="newest">{t('applicant.jobs.sortBy.newest')}</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {/* Location filter */}
+                  <Select value={locationFilter} onValueChange={setLocationFilter}>
+                    <SelectTrigger className="text-xs md:text-sm">
+                      <SelectValue placeholder="المدينة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__ALL__">الكل</SelectItem>
+                      {uniqueLocations.map((loc) => (
+                        <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Salary min */}
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="أدنى راتب"
+                    value={salaryMin}
+                    onChange={(e) => setSalaryMin(e.target.value)}
+                    className="text-xs md:text-sm"
+                  />
+
+                  {/* Salary max */}
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="أقصى راتب"
+                    value={salaryMax}
+                    onChange={(e) => setSalaryMax(e.target.value)}
+                    className="text-xs md:text-sm"
+                  />
                 </div>
               </div>
             </div>
@@ -195,7 +273,7 @@ const ApplicantJobs = () => {
 
             {/* Jobs List */}
         <div className="space-y-4">
-          {sortedJobs.map((job) => (
+          {sortedJobs.slice(0, visibleCount).map((job) => (
             <Card key={job.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4 md:pt-6 md:px-6 md:pb-6">
                 <div className="flex flex-col space-y-4">
@@ -300,9 +378,13 @@ const ApplicantJobs = () => {
         </div>
 
             {/* Load More */}
-            {sortedJobs.length > 0 && (
+            {sortedJobs.length > visibleCount && (
               <div className="text-center">
-                <Button variant="outline" className="w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  className="w-full sm:w-auto"
+                  onClick={() => setVisibleCount((c) => c + 10)}
+                >
                   {t('applicant.jobs.loadMore')}
                 </Button>
               </div>

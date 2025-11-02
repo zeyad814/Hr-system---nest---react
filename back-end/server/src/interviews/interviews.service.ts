@@ -9,6 +9,8 @@ import {
   CreateInterviewDto,
   UpdateInterviewDto,
   UpdateInterviewStatusDto,
+  ApplicantInterviewResponseDto,
+  HRInterviewReviewDto,
 } from './dto/interview.dto';
 
 @Injectable()
@@ -827,5 +829,190 @@ export class InterviewsService {
     //   throw new BadRequestException('Failed to refresh video call token');
     // }
     throw new BadRequestException('Agora integration is disabled');
+  }
+
+  /**
+   * ردّ المتقدم على المقابلة (قبول/رفض)
+   */
+  async applicantRespondToInterview(
+    interviewId: string,
+    userId: string,
+    responseDto: ApplicantInterviewResponseDto,
+  ) {
+    // الحصول على المتقدم المرتبط بالمستخدم
+    const applicant = await this.prisma.applicant.findUnique({
+      where: { userId },
+    });
+
+    if (!applicant) {
+      throw new NotFoundException('Applicant profile not found');
+    }
+
+    // الحصول على المقابلة
+    const interview = await this.prisma.interview.findUnique({
+      where: { id: interviewId },
+      include: {
+        application: true,
+        candidate: true,
+      },
+    });
+
+    if (!interview) {
+      throw new NotFoundException('Interview not found');
+    }
+
+    if (interview.candidateId !== applicant.id) {
+      throw new BadRequestException('Not authorized to respond to this interview');
+    }
+
+    // تحديث المقابلة برأي المتقدم
+    const updateData: any = {
+      applicantResponse: responseDto.response,
+    };
+
+    if (responseDto.response === 'REJECTED') {
+      updateData.applicantRejectedDate = new Date();
+      updateData.applicantRejectedNotes = responseDto.notes || null;
+      if (responseDto.suggestedDate) {
+        try {
+          const suggestedDateObj = new Date(responseDto.suggestedDate);
+          if (isNaN(suggestedDateObj.getTime())) {
+            throw new BadRequestException('Invalid suggested date format');
+          }
+          updateData.applicantSuggestedDate = suggestedDateObj;
+        } catch (error) {
+          throw new BadRequestException('Invalid suggested date format');
+        }
+      }
+      updateData.hrResponse = 'PENDING'; // في انتظار مراجعة HR
+    } else if (responseDto.response === 'ACCEPTED') {
+      updateData.hrResponse = 'APPROVED'; // إذا قبل، يعتبر موافق عليه
+    }
+
+    try {
+      return await this.prisma.interview.update({
+        where: { id: interviewId },
+        data: updateData,
+        include: {
+          application: {
+            include: {
+              job: { select: { title: true } },
+            },
+          },
+          candidate: {
+            include: {
+              user: { select: { name: true, email: true } },
+            },
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error updating interview:', error);
+      throw new BadRequestException(`Failed to update interview: ${error.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * الحصول على طلبات المقابلات في انتظار مراجعة HR
+   */
+  async getPendingInterviewRequests() {
+    return this.prisma.interview.findMany({
+      where: {
+        applicantResponse: 'REJECTED',
+        hrResponse: 'PENDING',
+      },
+      include: {
+        application: {
+          include: {
+            job: { select: { title: true, id: true } },
+            applicant: {
+              include: {
+                user: { select: { name: true, email: true } },
+              },
+            },
+          },
+        },
+        candidate: {
+          include: {
+            user: { select: { name: true, email: true } },
+          },
+        },
+        scheduledByUser: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * مراجعة HR لطلب رفض المقابلة من المتقدم
+   */
+  async hrReviewInterviewRequest(
+    interviewId: string,
+    userId: string,
+    reviewDto: HRInterviewReviewDto,
+  ) {
+    const interview = await this.prisma.interview.findUnique({
+      where: { id: interviewId },
+      include: {
+        application: true,
+      },
+    });
+
+    if (!interview) {
+      throw new NotFoundException('Interview not found');
+    }
+
+    if (interview.applicantResponse !== 'REJECTED' || interview.hrResponse !== 'PENDING') {
+      throw new BadRequestException('This interview request is not pending HR review');
+    }
+
+    const updateData: any = {
+      hrResponse: reviewDto.response === 'APPROVED' ? 'APPROVED' : 'REJECTED',
+    };
+
+    if (reviewDto.response === 'APPROVED') {
+      // إذا وافق HR على ميعاد جديد مقترح من المتقدم، أو اقترح HR ميعاد جديد
+      const newDate = reviewDto.suggestedDate
+        ? new Date(reviewDto.suggestedDate)
+        : interview.applicantSuggestedDate
+        ? new Date(interview.applicantSuggestedDate)
+        : null;
+
+      if (newDate) {
+        // تحديث موعد المقابلة
+        updateData.scheduledAt = newDate;
+        updateData.status = 'RESCHEDULED';
+        updateData.hrSuggestedDate = newDate;
+      } else {
+        // إذا لم يكن هناك ميعاد مقترح، نحتفظ بالموعد الأصلي
+        updateData.status = 'SCHEDULED';
+      }
+      updateData.hrResponse = 'APPROVED';
+      updateData.applicantResponse = 'ACCEPTED'; // بعد موافقة HR، يعتبر متقبل
+    } else {
+      // إذا رفض HR
+      updateData.hrRejectedAt = new Date();
+      updateData.hrRejectedNotes = reviewDto.notes || null;
+      if (reviewDto.suggestedDate) {
+        updateData.hrSuggestedDate = new Date(reviewDto.suggestedDate);
+      }
+    }
+
+    return this.prisma.interview.update({
+      where: { id: interviewId },
+      data: updateData,
+      include: {
+        application: {
+          include: {
+            job: { select: { title: true } },
+          },
+        },
+        candidate: {
+          include: {
+            user: { select: { name: true, email: true } },
+          },
+        },
+      },
+    });
   }
 }

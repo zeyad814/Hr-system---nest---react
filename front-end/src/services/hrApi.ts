@@ -410,8 +410,22 @@ export const hrApiService = {
     notes?: string;
     interviewerIds?: string[];
   }): Promise<Interview> {
-    const response = await hrApi.post('/interviews', data);
-    return response.data;
+    console.log('=== HR API SCHEDULE INTERVIEW ===');
+    console.log('API Base URL:', hrApi.defaults.baseURL);
+    console.log('Full URL:', `${hrApi.defaults.baseURL}/interviews`);
+    console.log('Data being sent:', JSON.stringify(data, null, 2));
+    console.log('Headers:', hrApi.defaults.headers);
+    
+    try {
+      const response = await hrApi.post('/interviews', data);
+      console.log('API Response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('API Error in hrApi.ts:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
   },
 
   async updateInterview(id: string, data: {
@@ -478,12 +492,30 @@ export const hrApiService = {
   },
 
   async recommendApplicant(applicantId: string, clientId: string, notes?: string): Promise<any> {
-    const response = await hrApi.post('/applicants/recommend', {
+    console.log('=== HR API RECOMMEND APPLICANT ===');
+    console.log('API Base URL:', hrApi.defaults.baseURL);
+    console.log('Full URL:', `${hrApi.defaults.baseURL}/applicants/recommend`);
+    console.log('Data being sent:', {
       applicantId,
       clientId,
       notes
     });
-    return response.data;
+    console.log('Headers:', hrApi.defaults.headers);
+    
+    try {
+      const response = await hrApi.post('/applicants/recommend', {
+        applicantId,
+        clientId,
+        notes
+      });
+      console.log('API Response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('API Error in hrApi.ts recommendApplicant:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
   },
 
   async updateApplicantRating(userId: string, rating: number): Promise<Applicant> {
@@ -498,8 +530,68 @@ export const hrApiService = {
 
   // Clients
   async getClients(): Promise<{ data: any[] }> {
-    const response = await hrApi.get('/clients');
-    return { data: response.data };
+    console.log('=== HR API GET CLIENTS ===');
+    console.log('API Base URL:', hrApi.defaults.baseURL);
+    console.log('Full URL:', `${hrApi.defaults.baseURL}/client/list`);
+    
+    try {
+      const response = await hrApi.get('/client/list');
+      console.log('Clients API Response:', response.data);
+      return { data: response.data };
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      // Return empty array on error
+      return { data: [] };
+    }
+  },
+
+  // Schedule interview with candidate directly (for candidates page)
+  async scheduleInterviewSchedule(data: {
+    title: string;
+    candidateName: string;
+    candidateEmail: string;
+    interviewerName: string;
+    interviewerEmail: string;
+    scheduledDate: string;
+    duration: number;
+    meetingType: 'GOOGLE_MEET' | 'ZOOM';
+    notes?: string;
+  }): Promise<any> {
+    console.log('=== HR API SCHEDULE INTERVIEW SCHEDULE ===');
+    console.log('API Base URL:', hrApi.defaults.baseURL);
+    console.log('Full URL:', `${hrApi.defaults.baseURL}/interviews/schedule`);
+    console.log('Data being sent:', JSON.stringify(data, null, 2));
+    console.log('Headers:', hrApi.defaults.headers);
+
+    try {
+      const response = await hrApi.post('/interviews/schedule', data);
+      console.log('API Response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('API Error in hrApi.ts scheduleInterviewSchedule:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw error;
+    }
+  },
+
+  // Get all interview schedules
+  async getAllInterviewSchedules(filters?: {
+    status?: string;
+    meetingType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<any[]> {
+    try {
+      const response = await hrApi.get('/interviews/schedule', { params: filters });
+      console.log('Interview schedules fetched:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching interview schedules:', error);
+      return [];
+    }
   },
 
   // Users
@@ -690,6 +782,21 @@ export const hrApiService = {
   async updateHRProfile(profileData: UpdateHRProfileData): Promise<HRProfile> {
     const response = await hrApi.put('/hr/profile', profileData);
     return response.data;
+  },
+
+  // Interview Requests
+  async getPendingInterviewRequests(): Promise<any[]> {
+    const response = await hrApi.get('/interviews/requests/pending');
+    return response.data;
+  },
+
+  async hrReviewInterviewRequest(interviewId: string, response: 'APPROVED' | 'REJECTED', suggestedDate?: string, notes?: string): Promise<any> {
+    const response_1 = await hrApi.post(`/interviews/${interviewId}/hr-review`, {
+      response,
+      suggestedDate,
+      notes,
+    });
+    return response_1.data;
   },
 };
 

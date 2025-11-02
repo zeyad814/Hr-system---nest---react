@@ -120,6 +120,7 @@ const AdminJobDetails: React.FC = () => {
     if (jobId) {
       fetchJobDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
   const fetchJobDetails = async () => {
@@ -131,8 +132,9 @@ const AdminJobDetails: React.FC = () => {
       const jobData = await hrApiService.getJobById(jobId!);
       
       setJob(jobData);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'فشل في تحميل تفاصيل الوظيفة');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'فشل في تحميل تفاصيل الوظيفة');
     } finally {
       setLoading(false);
     }
@@ -222,9 +224,36 @@ const AdminJobDetails: React.FC = () => {
       await hrApiService.updateApplicationStatus(applicationId, status);
       // Refresh job details to get updated applications
       fetchJobDetails();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating application status:', error);
     }
+  };
+
+  const extractSkills = (j: unknown): string[] => {
+    const obj = j as Record<string, unknown> | null | undefined;
+    let skillsStr = obj && (obj['requiredSkills'] || obj['skills'] || (obj && (obj as Record<string, unknown>)['required_skills']));
+    // Fallback: try to infer from requirements field
+    if (!skillsStr && obj && obj['requirements']) {
+      skillsStr = obj['requirements'];
+    }
+    if (!skillsStr) return [];
+    const raw = String(skillsStr);
+    // Split by Arabic comma، English comma, semicolon, or newline
+    const parts = raw
+      .split(/[,،;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    // De-duplicate case-insensitively
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const p of parts) {
+      const key = p.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(p);
+      }
+    }
+    return result;
   };
 
   if (loading) {
@@ -347,6 +376,28 @@ const AdminJobDetails: React.FC = () => {
                 </Card>
               )}
 
+              {/* Skills as badges (from any available field) */}
+              {(() => {
+                const skills = extractSkills(job);
+                if (!skills.length) return null;
+                return (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>المهارات المطلوبة</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {skills.map((skill: string, idx: number) => (
+                          <Badge key={`${skill}-${idx}`} variant="secondary">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {job.benefits && (
                 <Card>
                   <CardHeader>
@@ -412,22 +463,27 @@ const AdminJobDetails: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {job.requiredSkills && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>المهارات المطلوبة</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {job.requiredSkills.split(',').map((skill, index) => (
-                        <Badge key={index} variant="outline">
-                          {skill.trim()}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Keep sidebar skills section too (using same detection) */}
+              {(() => {
+                const skills = extractSkills(job);
+                if (!skills.length) return null;
+                return (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>المهارات المطلوبة</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {skills.map((skill: string, idx: number) => (
+                          <Badge key={`${skill}-${idx}`} variant="outline">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
             </div>
           </div>
         </TabsContent>

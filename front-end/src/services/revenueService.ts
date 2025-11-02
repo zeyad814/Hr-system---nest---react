@@ -35,9 +35,11 @@ export interface CommissionBreakdown {
 
 export const revenueService = {
   // Get dashboard statistics
-  async getDashboardStats(): Promise<RevenueStats> {
+  async getDashboardStats(currency?: string): Promise<RevenueStats> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`);
+      const params: any = {};
+      if (currency) params.currency = currency;
+      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -46,9 +48,11 @@ export const revenueService = {
   },
 
   // Get monthly revenue data
-  async getMonthlyRevenue(year?: number): Promise<MonthlyRevenueData[]> {
+  async getMonthlyRevenue(year?: number, currency?: string): Promise<MonthlyRevenueData[]> {
     try {
-      const params = year ? { year: year.toString() } : {};
+      const params: any = {};
+      if (year) params.year = year.toString();
+      if (currency) params.currency = currency;
       const response = await axios.get(`${API_BASE_URL}/dashboard/monthly-revenue`, { params });
       return response.data;
     } catch (error) {

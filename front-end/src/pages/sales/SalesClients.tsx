@@ -25,13 +25,33 @@ const SalesClients = () => {
   const [industryFilter, setIndustryFilter] = useState('all');
   const [selectedClient, setSelectedClient] = useState<SalesClient | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<SalesClient | null>(null);
   const [clients, setClients] = useState<SalesClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Add client form state (same as contracts page)
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientCompany, setNewClientCompany] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientLocation, setNewClientLocation] = useState('');
+  const [newClientIndustry, setNewClientIndustry] = useState('');
+
+  // Edit client form state
+  const [editClientName, setEditClientName] = useState('');
+  const [editClientCompany, setEditClientCompany] = useState('');
+  const [editClientEmail, setEditClientEmail] = useState('');
+  const [editClientPhone, setEditClientPhone] = useState('');
+  const [editClientLocation, setEditClientLocation] = useState('');
+  const [editClientIndustry, setEditClientIndustry] = useState('');
 
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // No mock data — using API only
 
   const fetchClients = async () => {
     try {
@@ -40,33 +60,85 @@ const SalesClients = () => {
       setClients(data.clients);
       setError(null);
     } catch (err) {
-      setError(t('sales.clients.errors.fetchFailed'));
+      toast.error('فشل تحميل العملاء من الخادم');
       console.error('Error fetching clients:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddClient = async (clientData: CreateSalesClientDto) => {
+  const handleAddClient = async () => {
+    if (!newClientName.trim()) {
+      toast.error('الرجاء إدخال اسم العميل');
+      return;
+    }
     try {
-      await salesApiService.createClient(clientData);
-      toast.success(t('sales.clients.messages.addSuccess'));
+      const payload: CreateSalesClientDto = {
+        name: newClientName,
+        company: newClientCompany || undefined,
+        email: newClientEmail || undefined,
+        phone: newClientPhone || undefined,
+        location: newClientLocation || undefined,
+        industry: newClientIndustry || undefined,
+        description: undefined,
+        contactPerson: undefined,
+      };
+
+      await salesApiService.createClient(payload);
+      await fetchClients();
       setIsAddDialogOpen(false);
-      fetchClients();
+      setNewClientName('');
+      setNewClientCompany('');
+      setNewClientEmail('');
+      setNewClientPhone('');
+      setNewClientLocation('');
+      setNewClientIndustry('');
+      toast.success('تم إضافة العميل بنجاح');
     } catch (error) {
-      console.error('Error adding client:', error);
-      toast.error(t('sales.clients.errors.addFailed'));
+      console.error('Error creating client:', error);
+      toast.error('فشل إضافة العميل');
     }
   };
 
-  const handleUpdateClient = async (id: string, clientData: Partial<SalesClient>) => {
+  const handleEditClient = (client: SalesClient) => {
+    setEditingClient(client);
+    setEditClientName(client.name);
+    setEditClientCompany(client.company || '');
+    setEditClientEmail(client.email || '');
+    setEditClientPhone(client.phone || '');
+    setEditClientLocation(client.location || '');
+    setEditClientIndustry(client.industry || '');
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateClient = async () => {
+    if (!editClientName.trim() || !editingClient) {
+      toast.error('الرجاء إدخال اسم العميل');
+      return;
+    }
     try {
-      await salesApiService.updateClient(id, clientData);
-      toast.success(t('sales.clients.messages.updateSuccess'));
-      fetchClients();
+      await salesApiService.updateClient(editingClient.id, {
+        name: editClientName,
+        company: editClientCompany || undefined,
+        email: editClientEmail || undefined,
+        phone: editClientPhone || undefined,
+        location: editClientLocation || undefined,
+        industry: editClientIndustry || undefined,
+      });
+
+      await fetchClients();
+      setIsEditDialogOpen(false);
+      setEditingClient(null);
+      setEditClientName('');
+      setEditClientCompany('');
+      setEditClientEmail('');
+      setEditClientPhone('');
+      setEditClientLocation('');
+      setEditClientIndustry('');
+      toast.success('تم تحديث العميل بنجاح');
     } catch (error) {
       console.error('Error updating client:', error);
-      toast.error(t('sales.clients.errors.updateFailed'));
+      toast.error('فشل تحديث بيانات العميل');
     }
   };
 
@@ -74,22 +146,22 @@ const SalesClients = () => {
     if (window.confirm('هل أنت متأكد من حذف هذا العميل؟')) {
       try {
         await salesApiService.deleteClient(id);
-        toast.success(t('sales.clients.messages.deleteSuccess'));
-        fetchClients();
+        await fetchClients();
+        toast.success('تم حذف العميل بنجاح');
       } catch (error) {
         console.error('Error deleting client:', error);
-        toast.error(t('sales.clients.errors.deleteFailed'));
+        toast.error('فشل حذف العميل');
       }
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return t('sales.clients.status.active');
-      case 'INACTIVE': return t('sales.clients.status.inactive');
-      case 'LEAD': return t('sales.clients.status.lead');
-      case 'PROSPECT': return t('sales.clients.status.prospect');
-      case 'CLOSED': return t('sales.clients.status.closed');
+      case 'ACTIVE': return t('salesClients.status.active');
+      case 'INACTIVE': return t('salesClients.status.inactive');
+      case 'LEAD': return t('salesClients.status.lead');
+      case 'PROSPECT': return t('salesClients.status.prospect');
+      case 'CLOSED': return t('salesClients.status.closed');
       default: return status;
     }
   };
@@ -122,73 +194,180 @@ const SalesClients = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">{t('sales.clients.title')}</h1>
-            <p className="text-gray-600 mt-1 md:mt-2 text-sm md:text-base">{t('sales.clients.subtitle')}</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('salesClients.title')}</h1>
+            <p className="text-gray-600 mt-1 md:mt-2 text-sm md:text-base">{t('salesClients.subtitle')}</p>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2 w-full sm:w-auto text-sm md:text-base">
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('sales.clients.addNewClient')}</span>
-                <span className="sm:hidden">{t('sales.clients.add')}</span>
+                <span className="hidden sm:inline">{t('salesClients.addNewClient')}</span>
+                <span className="sm:hidden">{t('salesClients.add')}</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md mx-4 md:mx-auto">
+            <DialogContent className="w-[95vw] max-w-lg mx-4 md:mx-auto">
                 <DialogHeader>
-                  <DialogTitle className="text-lg md:text-xl">{t('sales.clients.addNewClient')}</DialogTitle>
-                  <DialogDescription className="text-sm md:text-base">
-                    {t('sales.clients.addClientDescription')}
+                <DialogTitle className="text-base sm:text-lg">{t('salesClients.addNewClient')}</DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
+                  {t('salesClients.addClientDescription')}
                   </DialogDescription>
                 </DialogHeader>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label htmlFor="name" className="text-sm md:text-base">{t('sales.clients.form.contactName')}</Label>
-                  <Input id="name" placeholder={t('sales.clients.form.contactNamePlaceholder')} className="text-sm md:text-base" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="clientName" className="text-xs sm:text-sm">{t('salesClients.form.contactName')} <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="clientName" 
+                    placeholder={t('salesClients.form.contactName')} 
+                    className="text-xs sm:text-sm" 
+                    value={newClientName} 
+                    onChange={(e) => setNewClientName(e.target.value)} 
+                  />
                 </div>
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label htmlFor="company" className="text-sm md:text-base">{t('sales.clients.form.companyName')}</Label>
-                  <Input id="company" placeholder={t('sales.clients.form.companyNamePlaceholder')} className="text-sm md:text-base" />
+                <div className="space-y-2">
+                  <Label htmlFor="clientCompany" className="text-xs sm:text-sm">{t('salesClients.form.companyName')}</Label>
+                  <Input 
+                    id="clientCompany" 
+                    placeholder={t('salesClients.form.companyName')} 
+                    className="text-xs sm:text-sm" 
+                    value={newClientCompany} 
+                    onChange={(e) => setNewClientCompany(e.target.value)} 
+                  />
                 </div>
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label htmlFor="email" className="text-sm md:text-base">{t('sales.clients.form.email')}</Label>
-                  <Input id="email" type="email" placeholder={t('sales.clients.form.emailPlaceholder')} className="text-sm md:text-base" />
+                <div className="space-y-2">
+                  <Label htmlFor="clientEmail" className="text-xs sm:text-sm">{t('salesClients.form.email')}</Label>
+                  <Input 
+                    id="clientEmail" 
+                    type="email" 
+                    placeholder={t('salesClients.form.email')} 
+                    className="text-xs sm:text-sm" 
+                    value={newClientEmail} 
+                    onChange={(e) => setNewClientEmail(e.target.value)} 
+                  />
                 </div>
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label htmlFor="phone" className="text-sm md:text-base">{t('sales.clients.form.phone')}</Label>
-                  <Input id="phone" placeholder={t('sales.clients.form.phonePlaceholder')} className="text-sm md:text-base" />
+                <div className="space-y-2">
+                  <Label htmlFor="clientPhone" className="text-xs sm:text-sm">{t('salesClients.form.phone')}</Label>
+                  <Input 
+                    id="clientPhone" 
+                    placeholder={t('salesClients.form.phone')} 
+                    className="text-xs sm:text-sm" 
+                    value={newClientPhone} 
+                    onChange={(e) => setNewClientPhone(e.target.value)} 
+                  />
                 </div>
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label htmlFor="location" className="text-sm md:text-base">{t('sales.clients.form.location')}</Label>
-                  <Input id="location" placeholder={t('sales.clients.form.locationPlaceholder')} className="text-sm md:text-base" />
+                <div className="space-y-2">
+                  <Label htmlFor="clientLocation" className="text-xs sm:text-sm">{t('salesClients.form.location')}</Label>
+                  <Input 
+                    id="clientLocation" 
+                    placeholder={t('salesClients.form.location')} 
+                    className="text-xs sm:text-sm" 
+                    value={newClientLocation} 
+                    onChange={(e) => setNewClientLocation(e.target.value)} 
+                  />
                 </div>
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label htmlFor="industry" className="text-sm md:text-base">{t('sales.clients.form.industry')}</Label>
-                  <Select>
-                    <SelectTrigger className="text-sm md:text-base">
-                      <SelectValue placeholder={t('sales.clients.form.industryPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tech">{t('sales.clients.industries.tech')}</SelectItem>
-                      <SelectItem value="finance">{t('sales.clients.industries.finance')}</SelectItem>
-                      <SelectItem value="construction">{t('sales.clients.industries.construction')}</SelectItem>
-                      <SelectItem value="healthcare">{t('sales.clients.industries.healthcare')}</SelectItem>
-                      <SelectItem value="education">{t('sales.clients.industries.education')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-1 sm:col-span-2 space-y-1.5 md:space-y-2">
-                  <Label htmlFor="description" className="text-sm md:text-base">{t('sales.clients.form.description')}</Label>
-                  <Textarea id="description" placeholder={t('sales.clients.form.descriptionPlaceholder')} className="text-sm md:text-base" />
+                <div className="space-y-2">
+                  <Label htmlFor="clientIndustry" className="text-xs sm:text-sm">{t('salesClients.form.industry')}</Label>
+                  <Input 
+                    id="clientIndustry" 
+                    placeholder={t('salesClients.form.industry')} 
+                    className="text-xs sm:text-sm" 
+                    value={newClientIndustry} 
+                    onChange={(e) => setNewClientIndustry(e.target.value)} 
+                  />
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-3 md:mt-4">
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="text-sm md:text-base">
-                  {t('sales.clients.form.cancel')}
+              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="text-xs sm:text-sm">
+                  {t('salesClients.form.cancel')}
                 </Button>
-                <Button onClick={() => setIsAddDialogOpen(false)} className="text-sm md:text-base">
-                  {t('sales.clients.form.add')}
+                <Button onClick={handleAddClient} className="text-xs sm:text-sm">
+                  {t('salesClients.form.add')}
+                </Button>
+                </div>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-2"><span className="text-red-500">*</span> {t('salesContracts.requiredFields')}</p>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Client Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="w-[95vw] max-w-lg mx-4 md:mx-auto">
+              <DialogHeader>
+                <DialogTitle className="text-base sm:text-lg">{t('salesClients.editClient')}</DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
+                  {t('salesClients.editClientDescription')}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editClientName" className="text-xs sm:text-sm">{t('salesClients.form.contactName')} <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="editClientName" 
+                    placeholder={t('salesClients.form.contactName')} 
+                    className="text-xs sm:text-sm" 
+                    value={editClientName} 
+                    onChange={(e) => setEditClientName(e.target.value)} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editClientCompany" className="text-xs sm:text-sm">{t('salesClients.form.companyName')}</Label>
+                  <Input 
+                    id="editClientCompany" 
+                    placeholder={t('salesClients.form.companyName')} 
+                    className="text-xs sm:text-sm" 
+                    value={editClientCompany} 
+                    onChange={(e) => setEditClientCompany(e.target.value)} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editClientEmail" className="text-xs sm:text-sm">{t('salesClients.form.email')}</Label>
+                  <Input 
+                    id="editClientEmail" 
+                    type="email" 
+                    placeholder={t('salesClients.form.email')} 
+                    className="text-xs sm:text-sm" 
+                    value={editClientEmail} 
+                    onChange={(e) => setEditClientEmail(e.target.value)} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editClientPhone" className="text-xs sm:text-sm">{t('salesClients.form.phone')}</Label>
+                  <Input 
+                    id="editClientPhone" 
+                    placeholder={t('salesClients.form.phone')} 
+                    className="text-xs sm:text-sm" 
+                    value={editClientPhone} 
+                    onChange={(e) => setEditClientPhone(e.target.value)} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editClientLocation" className="text-xs sm:text-sm">{t('salesClients.form.location')}</Label>
+                  <Input 
+                    id="editClientLocation" 
+                    placeholder={t('salesClients.form.location')} 
+                    className="text-xs sm:text-sm" 
+                    value={editClientLocation} 
+                    onChange={(e) => setEditClientLocation(e.target.value)} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editClientIndustry" className="text-xs sm:text-sm">{t('salesClients.form.industry')}</Label>
+                  <Input 
+                    id="editClientIndustry" 
+                    placeholder={t('salesClients.form.industry')} 
+                    className="text-xs sm:text-sm" 
+                    value={editClientIndustry} 
+                    onChange={(e) => setEditClientIndustry(e.target.value)} 
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="text-xs sm:text-sm">
+                  {t('salesClients.form.cancel')}
+                </Button>
+                <Button onClick={handleUpdateClient} className="text-xs sm:text-sm">
+                  {t('salesClients.form.update')}
                 </Button>
               </div>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-2"><span className="text-red-500">*</span> {t('salesContracts.requiredFields')}</p>
             </DialogContent>
           </Dialog>
         </div>
@@ -199,7 +378,7 @@ const SalesClients = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder={t('sales.clients.searchPlaceholder')}
+                placeholder={t('salesClients.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 text-sm md:text-base"
@@ -208,24 +387,25 @@ const SalesClients = () => {
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[160px] md:w-[180px] text-sm md:text-base">
-              <SelectValue placeholder={t('sales.clients.filterByStatus')} />
+              <SelectValue placeholder={t('salesClients.filterByStatus')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('sales.clients.allStatuses')}</SelectItem>
-              <SelectItem value="active">{t('sales.clients.status.active')}</SelectItem>
-              <SelectItem value="inactive">{t('sales.clients.status.inactive')}</SelectItem>
-              <SelectItem value="potential">{t('sales.clients.status.potential')}</SelectItem>
+              <SelectItem value="all">{t('salesClients.allStatuses')}</SelectItem>
+              <SelectItem value="active">{t('salesClients.status.active')}</SelectItem>
+              <SelectItem value="inactive">{t('salesClients.status.inactive')}</SelectItem>
+              <SelectItem value="lead">{t('salesClients.status.lead')}</SelectItem>
+              <SelectItem value="prospect">{t('salesClients.status.prospect')}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={industryFilter} onValueChange={setIndustryFilter}>
             <SelectTrigger className="w-full sm:w-[160px] md:w-[180px] text-sm md:text-base">
-              <SelectValue placeholder={t('sales.clients.filterByIndustry')} />
+              <SelectValue placeholder={t('salesClients.filterByIndustry')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('sales.clients.allIndustries')}</SelectItem>
-              <SelectItem value="تقنية المعلومات">{t('sales.clients.industries.tech')}</SelectItem>
-              <SelectItem value="الخدمات المالية">{t('sales.clients.industries.finance')}</SelectItem>
-              <SelectItem value="البناء والتشييد">{t('sales.clients.industries.construction')}</SelectItem>
+              <SelectItem value="all">{t('salesClients.allIndustries')}</SelectItem>
+              <SelectItem value="تقنية المعلومات">{t('salesClients.industries.tech')}</SelectItem>
+              <SelectItem value="الخدمات المالية">{t('salesClients.industries.finance')}</SelectItem>
+              <SelectItem value="البناء والتشييد">{t('salesClients.industries.construction')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -235,7 +415,7 @@ const SalesClients = () => {
           <div className="flex justify-center items-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">{t('sales.clients.loading')}</p>
+              <p className="text-gray-600">{t('salesClients.loading')}</p>
             </div>
           </div>
         )}
@@ -245,7 +425,7 @@ const SalesClients = () => {
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
               <p className="text-red-600 mb-4">{error}</p>
               <Button onClick={fetchClients} variant="outline">
-                {t('sales.clients.retry')}
+                {t('salesClients.retry')}
               </Button>
             </div>
           </div>
@@ -377,10 +557,11 @@ const SalesClients = () => {
                       )}
                     </DialogContent>
                   </Dialog>
-                  <Button variant="outline" size="sm" className="px-2 md:px-3" onClick={() => {
-                    // TODO: Implement edit functionality
-                    toast.info(t('sales.clients.editFeatureComingSoon'));
-                  }}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-blue-600 hover:text-blue-700 px-2 md:px-3"
+                    onClick={() => handleEditClient(client)}>
                     <Edit className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   </Button>
                   <Button 
@@ -401,8 +582,8 @@ const SalesClients = () => {
         {!loading && !error && filteredClients.length === 0 && (
           <div className="text-center py-8 md:py-12 px-4">
             <Building2 className="h-10 w-10 md:h-12 md:w-12 text-gray-400 mx-auto mb-3 md:mb-4" />
-            <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">{t('sales.clients.noClients')}</h3>
-            <p className="text-sm md:text-base text-gray-500">{t('sales.clients.noClientsDescription')}</p>
+            <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">{t('salesClients.noClients')}</h3>
+            <p className="text-sm md:text-base text-gray-500">{t('salesClients.noClientsDescription')}</p>
           </div>
         )}
       </div>

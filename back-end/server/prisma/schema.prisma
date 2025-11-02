@@ -41,6 +41,7 @@ model User {
   scheduledInterviews Interview[]
   assignedReminders SalesReminder[] @relation("AssignedReminders")
   createdReminders SalesReminder[] @relation("CreatedReminders")
+  createdSalesOffers SalesOffer[] @relation("CreatedSalesOffers")
 }
 
 enum JobStatus {
@@ -99,6 +100,7 @@ model Job {
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
   applications          JobApplication[]
+  salesOffers           SalesOffer[]
 }
 
 model JobRequest {
@@ -135,6 +137,7 @@ model JobApplication {
   timeline       ApplicationTimeline[]
   feedback       Feedback[]
   interviews     Interview[]
+  salesOffers    SalesOffer[]
 }
 
 enum ApplicationStatus {
@@ -182,6 +185,7 @@ model Applicant {
   educations   Education[]
   projects     Project[]
   qualifications Qualification[]
+  salesOffers  SalesOffer[]
 }
 
 model ApplicationTimeline {
@@ -370,10 +374,50 @@ model Contract {
   commissionType String?      @default("percentage")
   assignedTo    String?
   jobTitle      String?
+  applicantId   String?
+  applicationId String?
+  applicantNotes String?
+  applicantRespondedAt DateTime?
   progress      Int?          @default(0)
   paymentStatus String?       @default("pending")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+}
+
+// Sales Offers Model - عروض Sales للمتقدمين
+model SalesOffer {
+  id            String        @id @default(uuid())
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicantId   String
+  applicant     Applicant     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  jobId         String
+  job           Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdBy     String        // Sales User ID
+  createdByUser User          @relation("CreatedSalesOffers", fields: [createdBy], references: [id])
+  value         Float         // المبلغ
+  currency      String        @default("SAR")
+  notes         String?       // ملاحظات إضافية
+  status        SalesOfferStatus @default(PENDING)
+  // Applicant response
+  applicantResponse String?   // ACCEPTED, REJECTED, PENDING
+  applicantRejectedAt DateTime?
+  applicantRejectedNotes String?
+  // Sales review (for rejection requests)
+  salesResponse String?       // APPROVED, REJECTED, PENDING
+  salesRejectedAt DateTime?
+  salesRejectedNotes String?
+  salesNewOfferId String?     // ID of new offer if sales creates a new one
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum SalesOfferStatus {
+  PENDING      // في انتظار رد المتقدم
+  ACCEPTED     // قبلها المتقدم
+  REJECTED     // رفضها المتقدم (في انتظار مراجعة Sales)
+  SALES_REJECTED // رفضها Sales نهائياً
+  SALES_APPROVED // وافق Sales على الرفض وقدم عرض جديد
 }
 
 model Note {
@@ -425,6 +469,16 @@ model Interview {
   report        String?        // Interview report/feedback
   reminderSent  Boolean        @default(false)
   reminderSentAt DateTime?
+  // Applicant response fields
+  applicantResponse String?    // ACCEPTED, REJECTED, PENDING
+  applicantRejectedDate DateTime?
+  applicantRejectedNotes String?
+  applicantSuggestedDate DateTime? // Suggested new date by applicant
+  // HR approval fields
+  hrResponse String?          // APPROVED, REJECTED, PENDING
+  hrRejectedDate DateTime?
+  hrRejectedNotes String?
+  hrSuggestedDate DateTime?   // Suggested new date by HR
   // Agora Integration Fields
   agoraChannelName String?     // Agora channel name for video calls
   agoraToken    String?        // Agora access token

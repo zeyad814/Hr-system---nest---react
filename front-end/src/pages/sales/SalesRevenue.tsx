@@ -55,10 +55,13 @@ const SalesRevenuePage = () => {
 
   const fetchRevenues = async () => {
     try {
-      const data = await salesApiService.getRevenues();
-      setRevenues(data.revenues);
+      const data = await salesApiService.getRevenues({ page: 1, limit: 100 });
+      const list = Array.isArray(data) ? data : (data?.revenues || []);
+      setRevenues(list);
+      setError(null);
     } catch (err) {
-      setError('فشل في تحميل الإيرادات');
+      setError('فشل في تحميل بيانات الإيرادات');
+      setRevenues([]);
       console.error('Error fetching revenues:', err);
     } finally {
       setLoading(false);
@@ -68,9 +71,10 @@ const SalesRevenuePage = () => {
   const fetchMonthlyRevenue = async () => {
     try {
       const data = await salesApiService.getMonthlyRevenue();
-      setMonthlyRevenue(data);
+      setMonthlyRevenue(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching monthly revenue:', err);
+      setMonthlyRevenue([]);
     }
   };
 

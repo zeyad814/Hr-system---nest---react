@@ -24,6 +24,31 @@ api.interceptors.response.use(
       localStorage.removeItem('token_expiry');
       window.location.href = '/login';
     }
+    // Normalize/translate backend error messages to current UI language
+    try {
+      const lang = (localStorage.getItem('language') || 'en').toLowerCase();
+      const msg = error?.response?.data?.message;
+      if (typeof msg === 'string') {
+        const isArabic = /[\u0600-\u06FF]/.test(msg);
+        if (lang === 'en' && isArabic) {
+          const map: Record<string, string> = {
+            'فشل في تحميل بيانات الإيرادات': 'Failed to load revenue data',
+            'حدث خطأ غير متوقع': 'An unexpected error occurred',
+            'غير مصرح': 'Unauthorized',
+            'غير مسموح': 'Forbidden',
+            'لم يتم العثور على البيانات': 'Data not found',
+            'فشل الحفظ': 'Failed to save',
+            'فشل التحديث': 'Failed to update',
+            'فشل الحذف': 'Failed to delete',
+            'حدث خطأ في الخادم': 'Server error',
+          };
+          const translated = map[msg] || 'An error occurred. Please try again.';
+          if (error.response?.data) {
+            error.response.data.message = translated;
+          }
+        }
+      }
+    } catch {}
     return Promise.reject(error);
   }
 );

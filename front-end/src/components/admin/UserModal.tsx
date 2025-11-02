@@ -33,7 +33,7 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
   const [formData, setFormData] = useState<User>({
     name: "",
     email: "",
-    role: "EMPLOYEE",
+    role: "APPLICANT",
     status: "ACTIVE",
     department: "",
     position: "",
@@ -58,7 +58,7 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
         setFormData({
           name: "",
           email: "",
-          role: "EMPLOYEE",
+          role: "APPLICANT",
           status: "ACTIVE",
           department: "none",
           position: "",
@@ -111,11 +111,14 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
 
       onSuccess();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving user:', error);
+      type ErrorWithResponse = { response?: { data?: { message?: string } } };
+      const err = error as ErrorWithResponse;
+      const message = err?.response?.data?.message;
       toast({
         title: t('common.error'),
-        description: error.response?.data?.message || t('admin.users.saveError'),
+        description: message || t('admin.users.saveError'),
         variant: "destructive"
       });
     } finally {
@@ -141,7 +144,9 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">{t('admin.users.fullName')}</Label>
+            <Label htmlFor="name">
+              {t('admin.users.fullName')} <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="name"
               value={formData.name}
@@ -152,7 +157,9 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">{t('admin.users.email')}</Label>
+            <Label htmlFor="email">
+              {t('admin.users.email')} <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="email"
               type="email"
@@ -165,7 +172,7 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
 
           <div className="space-y-2">
             <Label htmlFor="password">
-              {isEditing ? t('admin.users.newPasswordOptional') : t('admin.users.password')}
+              {isEditing ? t('admin.users.newPasswordOptional') : t('admin.users.password')} {!isEditing && (<span className="text-red-500">*</span>)}
             </Label>
             <div className="relative">
               <Input
@@ -189,7 +196,9 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="role">{t('admin.users.role')}</Label>
+            <Label htmlFor="role">
+              {t('admin.users.role')} <span className="text-red-500">*</span>
+            </Label>
             <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
               <SelectTrigger>
                 <SelectValue placeholder={t('admin.users.selectRole')} />
@@ -207,7 +216,9 @@ const UserModal = ({ isOpen, onClose, user, onSuccess }: UserModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status">{t('admin.users.status')}</Label>
+            <Label htmlFor="status">
+              {t('admin.users.status')} <span className="text-red-500">*</span>
+            </Label>
             <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
               <SelectTrigger>
                 <SelectValue placeholder={t('admin.users.selectStatus')} />

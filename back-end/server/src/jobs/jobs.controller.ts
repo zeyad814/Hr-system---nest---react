@@ -76,7 +76,7 @@ export class JobsController {
   @Post(':id/apply')
   @Roles('APPLICANT')
   apply(@Param('id') jobId: string, @Req() req: any) {
-    const applicantId = req.user?.userId;
+    const applicantId = req.user?.sub;
     return this.jobs.applyToJob(jobId, applicantId);
   }
 

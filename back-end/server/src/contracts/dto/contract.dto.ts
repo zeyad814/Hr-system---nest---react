@@ -87,6 +87,18 @@ export class CreateContractDto {
   jobTitle?: string;
 
   @IsOptional()
+  @IsString()
+  applicantId?: string;
+
+  @IsOptional()
+  @IsString()
+  applicationId?: string;
+
+  @IsOptional()
+  @IsString()
+  applicantNotes?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
@@ -157,6 +169,14 @@ export class UpdateContractDto {
   jobTitle?: string;
 
   @IsOptional()
+  @IsString()
+  applicantId?: string;
+
+  @IsOptional()
+  @IsString()
+  applicationId?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
@@ -190,6 +210,10 @@ export class ContractQueryDto {
 
   @IsOptional()
   @IsString()
+  applicantId?: string;
+
+  @IsOptional()
+  @IsString()
   paymentStatus?: string;
 
   @IsOptional()
@@ -214,6 +238,9 @@ export class ContractResponseDto {
     name: string;
     email?: string;
     phone?: string;
+    company?: string;
+    industry?: string;
+    address?: string;
   };
   title: string;
   description?: string;
@@ -231,6 +258,44 @@ export class ContractResponseDto {
   jobTitle?: string;
   progress?: number;
   paymentStatus?: string;
+  application?: {
+    id: string;
+    status: string;
+    job?: {
+      id: string;
+      title: string;
+      description?: string;
+      location?: string;
+      salaryMin?: number;
+      salaryMax?: number;
+      salaryCurrency?: string;
+      client?: {
+        id: string;
+        name: string;
+        company?: string;
+        email?: string;
+        phone?: string;
+      };
+    };
+    applicant?: {
+      id: string;
+      user?: {
+        id: string;
+        name: string;
+        email?: string;
+        phone?: string;
+      };
+    };
+  };
+  applicant?: {
+    id: string;
+    user?: {
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+    };
+  };
   createdAt: Date;
   updatedAt: Date;
 }

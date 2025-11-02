@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Client = {
   id: string;
@@ -17,6 +18,7 @@ type Client = {
 
 export default function ClientDetail() {
   const { id } = useParams();
+  const { t } = useLanguage();
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -34,25 +36,32 @@ export default function ClientDetail() {
 
   const [revenues, setRevenues] = useState<any[]>([]);
   const [amount, setAmount] = useState("");
-  const [periodMonth, setPeriodMonth] = useState("");
-  const [periodYear, setPeriodYear] = useState("");
+  const [revenueMonthYear, setRevenueMonthYear] = useState("");
 
   const loadClient = async () => {
     if (!id) return;
     setLoading(true);
     try {
+      console.log("=== Loading client data for ID:", id);
       const [c, n, r, ct, rv] = await Promise.all([
-        api.get(`/clients/${id}`),
-        api.get(`/clients/${id}/notes`),
-        api.get(`/clients/${id}/reminders`),
-        api.get(`/clients/${id}/contracts`),
-        api.get(`/clients/${id}/revenues`),
+        api.get(`/client/admin/${id}`),
+        api.get(`/client/${id}/notes`),
+        api.get(`/client/${id}/reminders`),
+        api.get(`/client/${id}/contracts`),
+        api.get(`/client/${id}/revenues`),
       ]);
+      console.log("Client data loaded:", c.data);
+      console.log("Notes:", n.data);
+      console.log("Reminders:", r.data);
+      console.log("Contracts:", ct.data);
+      console.log("Revenues:", rv.data);
       setClient(c.data);
       setNotes(n.data ?? []);
       setReminders(r.data ?? []);
       setContracts(ct.data ?? []);
       setRevenues(rv.data ?? []);
+    } catch (error) {
+      console.error("Error loading client data:", error);
     } finally {
       setLoading(false);
     }
@@ -64,35 +73,81 @@ export default function ClientDetail() {
 
   const addNote = async () => {
     if (!noteContent.trim() || !id) return;
-    await api.post(`/clients/${id}/notes`, { content: noteContent.trim() });
-    setNoteContent("");
-    loadClient();
+    try {
+      console.log("=== Adding note for client:", id);
+      console.log("Note content:", noteContent.trim());
+      const response = await api.post(`/client/${id}/notes`, { content: noteContent.trim() });
+      console.log("Note added successfully:", response.data);
+      setNoteContent("");
+      await loadClient();
+    } catch (error) {
+      console.error("Error adding note:", error);
+      alert(t('errors.failedToAddNote'));
+    }
   };
 
   const addReminder = async () => {
     if (!reminderTitle.trim() || !remindAt || !id) return;
-    await api.post(`/clients/${id}/reminders`, { title: reminderTitle.trim(), remindAt });
-    setReminderTitle("");
-    setRemindAt("");
-    loadClient();
+    try {
+      console.log("=== Adding reminder for client:", id);
+      console.log("Reminder data:", { title: reminderTitle.trim(), remindAt });
+      const response = await api.post(`/client/${id}/reminders`, { title: reminderTitle.trim(), remindAt });
+      console.log("Reminder added successfully:", response.data);
+      setReminderTitle("");
+      setRemindAt("");
+      await loadClient();
+    } catch (error) {
+      console.error("Error adding reminder:", error);
+      alert(t('errors.failedToAddReminder'));
+    }
   };
 
   const addContract = async () => {
     if (!contractTitle.trim() || !id) return;
-    await api.post(`/clients/${id}/contracts`, { title: contractTitle.trim(), fileUrl: contractUrl || undefined, signedAt: contractSignedAt || undefined });
-    setContractTitle("");
-    setContractUrl("");
-    setContractSignedAt("");
-    loadClient();
+    try {
+      console.log("=== Adding contract for client:", id);
+      console.log("Contract data:", { title: contractTitle.trim(), fileUrl: contractUrl || undefined, signedAt: contractSignedAt || undefined });
+      const response = await api.post(`/client/${id}/contracts`, { title: contractTitle.trim(), fileUrl: contractUrl || undefined, signedAt: contractSignedAt || undefined });
+      console.log("Contract added successfully:", response.data);
+      setContractTitle("");
+      setContractUrl("");
+      setContractSignedAt("");
+      await loadClient();
+    } catch (error) {
+      console.error("Error adding contract:", error);
+      alert(t('errors.failedToAddContract'));
+    }
   };
 
   const addRevenue = async () => {
     if (!amount || !id) return;
-    await api.post(`/clients/${id}/revenues`, { amount, periodMonth: periodMonth ? Number(periodMonth) : undefined, periodYear: periodYear ? Number(periodYear) : undefined });
-    setAmount("");
-    setPeriodMonth("");
-    setPeriodYear("");
-    loadClient();
+    try {
+      console.log("=== Adding revenue for client:", id);
+
+      // Parse month-year from input (format: "YYYY-MM")
+      let periodMonth: number | undefined;
+      let periodYear: number | undefined;
+
+      if (revenueMonthYear) {
+        const [year, month] = revenueMonthYear.split('-');
+        periodMonth = parseInt(month);
+        periodYear = parseInt(year);
+      }
+
+      console.log("Revenue data:", { amount, periodMonth, periodYear });
+      const response = await api.post(`/client/${id}/revenues`, {
+        amount: Number(amount),
+        periodMonth,
+        periodYear
+      });
+      console.log("Revenue added successfully:", response.data);
+      setAmount("");
+      setRevenueMonthYear("");
+      await loadClient();
+    } catch (error) {
+      console.error("Error adding revenue:", error);
+      alert(t('errors.failedToAddRevenue'));
+    }
   };
 
   return (
@@ -173,15 +228,14 @@ export default function ClientDetail() {
 
           <TabsContent value="revenues">
             <div className="flex flex-col md:flex-row gap-2 mb-3">
-              <Input placeholder="المبلغ" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              <Input placeholder="شهر" value={periodMonth} onChange={(e) => setPeriodMonth(e.target.value)} />
-              <Input placeholder="سنة" value={periodYear} onChange={(e) => setPeriodYear(e.target.value)} />
+              <Input placeholder="المبلغ" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Input type="month" value={revenueMonthYear} onChange={(e) => setRevenueMonthYear(e.target.value)} />
               <Button onClick={addRevenue}>إضافة</Button>
             </div>
             <ul className="space-y-2">
               {revenues.map((rv) => (
                 <li key={rv.id} className="p-3 rounded border flex justify-between">
-                  <span>{rv.amount}</span>
+                  <span>{rv.amount} ريال</span>
                   <span className="text-muted-foreground text-xs">{rv.periodMonth ? `${rv.periodMonth}/${rv.periodYear ?? ''}` : ''}</span>
                 </li>
               ))}

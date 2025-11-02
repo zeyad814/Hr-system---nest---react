@@ -36,7 +36,13 @@ export class ContractsService {
 
     const contract = await this.prisma.contract.create({
       data: {
-        ...createContractDto,
+        clientId: createContractDto.clientId,
+        title: createContractDto.title,
+        description: createContractDto.description,
+        type: createContractDto.type || 'RECRUITMENT',
+        status: createContractDto.status || 'DRAFT',
+        value: createContractDto.value,
+        currency: createContractDto.currency || 'SAR',
         startDate: createContractDto.startDate
           ? new Date(createContractDto.startDate)
           : null,
@@ -46,6 +52,16 @@ export class ContractsService {
         signedAt: createContractDto.signedAt
           ? new Date(createContractDto.signedAt)
           : null,
+        fileUrl: createContractDto.fileUrl,
+        commission: createContractDto.commission,
+        commissionType: createContractDto.commissionType,
+        assignedTo: createContractDto.assignedTo,
+        jobTitle: createContractDto.jobTitle,
+        applicantId: createContractDto.applicantId ?? null,
+        applicationId: createContractDto.applicationId ?? null,
+        applicantNotes: createContractDto.applicantNotes ?? null,
+        progress: createContractDto.progress,
+        paymentStatus: createContractDto.paymentStatus,
       },
       include: {
         client: {
@@ -106,6 +122,10 @@ export class ContractsService {
       where.clientId = clientId;
     }
 
+    if (query.applicantId) {
+      where.applicantId = query.applicantId;
+    }
+
     if (paymentStatus) {
       where.paymentStatus = paymentStatus;
     }
@@ -147,6 +167,25 @@ export class ContractsService {
   }
 
   /**
+   * ردّ المتقدم على العقد
+   */
+  async applicantRespond(id: string, action: 'ACCEPT' | 'REJECT', notes?: string) {
+    const current = await this.prisma.contract.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException('العقد غير موجود');
+
+    const status: ContractStatus = action === 'ACCEPT' ? ContractStatus.ACTIVE : ContractStatus.CANCELLED;
+
+    return this.prisma.contract.update({
+      where: { id },
+      data: {
+        status,
+        applicantNotes: notes ?? null,
+        applicantRespondedAt: new Date(),
+      },
+    });
+  }
+
+  /**
    * الحصول على عقد واحد بالمعرف
    */
   async findOne(id: string): Promise<ContractResponseDto> {
@@ -159,6 +198,57 @@ export class ContractsService {
             name: true,
             email: true,
             phone: true,
+            company: true,
+            industry: true,
+            address: true,
+          },
+        },
+        application: {
+          include: {
+            job: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                location: true,
+                salaryMin: true,
+                salaryMax: true,
+                salaryCurrency: true,
+                client: {
+                  select: {
+                    id: true,
+                    name: true,
+                    company: true,
+                    email: true,
+                    phone: true,
+                  },
+                },
+              },
+            },
+            applicant: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        applicant: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
           },
         },
       },
@@ -426,6 +516,8 @@ export class ContractsService {
       jobTitle: contract.jobTitle,
       progress: contract.progress,
       paymentStatus: contract.paymentStatus,
+      application: contract.application,
+      applicant: contract.applicant,
       createdAt: contract.createdAt,
       updatedAt: contract.updatedAt,
     };

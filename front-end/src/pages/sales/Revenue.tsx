@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -22,8 +23,11 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { revenueService, RevenueStats, MonthlyRevenueData, TopClient, CommissionBreakdown } from '@/services/revenueService';
+import { useSalesCurrency } from "@/contexts/SalesCurrencyContext";
 
 const SalesRevenue = () => {
+  const { t } = useLanguage();
+  const { currency, getCurrencyIcon, getCurrencyName } = useSalesCurrency();
   const [selectedPeriod, setSelectedPeriod] = useState('2024');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,27 +38,36 @@ const SalesRevenue = () => {
   const [topClientsData, setTopClientsData] = useState<TopClient[]>([]);
   const [commissionBreakdownData, setCommissionBreakdownData] = useState<CommissionBreakdown[]>([]);
 
-  // Load data on component mount and when period changes
+  // Load data on component mount and when period or currency changes
   useEffect(() => {
     loadRevenueData();
-  }, [selectedPeriod]);
+  }, [selectedPeriod, currency]);
 
   const loadRevenueData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const [statsData, monthlyRevenueData, topClientsResponse, commissionData] = await Promise.all([
-        revenueService.getDashboardStats(),
-        revenueService.getMonthlyRevenue(parseInt(selectedPeriod)),
-        revenueService.getTopClients(10),
-        revenueService.getCommissionBreakdown()
+      const [statsData, monthlyRevenueRaw] = await Promise.all([
+        revenueService.getDashboardStats(currency),
+        revenueService.getMonthlyRevenue(parseInt(selectedPeriod), currency)
       ]);
+
+      // Normalize monthly data to avoid undefined fields
+      const monthsNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+      const monthlyRevenueData: MonthlyRevenueData[] = (monthlyRevenueRaw || []).map((m: any) => ({
+        month: typeof m.month === 'number' ? (monthsNames[m.month - 1] || `${m.month}`) : (m.month || ''),
+        revenue: Number(m.revenue || 0),
+        commissions: Number(m.commissions || 0),
+        contracts: Number(m.contracts || 0),
+        clients: Number(m.clients || 0)
+      }));
 
       setStats(statsData);
       setMonthlyData(monthlyRevenueData);
-      setTopClientsData(topClientsResponse);
-      setCommissionBreakdownData(commissionData);
+      // Optional: leave empty until backend endpoints are available
+      setTopClientsData([]);
+      setCommissionBreakdownData([]);
     } catch (err) {
       console.error('Error loading revenue data:', err);
       setError('فشل في تحميل بيانات الإيرادات');
@@ -65,7 +78,7 @@ const SalesRevenue = () => {
 
   const handleExportPDF = async () => {
     if (!stats || !monthlyData.length) {
-      alert('لا توجد بيانات للتصدير');
+      alert(t('errors.noDataToExport'));
       return;
     }
 
@@ -76,7 +89,7 @@ const SalesRevenue = () => {
         topClients: topClientsData,
         commissionBreakdown: commissionBreakdownData
       });
-      
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
@@ -88,7 +101,7 @@ const SalesRevenue = () => {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Error exporting PDF:', err);
-      alert('فشل في تصدير التقرير');
+      alert(t('errors.failedToExport'));
     }
   };
 
@@ -149,10 +162,15 @@ const SalesRevenue = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">إجمالي الإيرادات</p>
-                  <p className="text-2xl font-bold">{totalRevenue.toLocaleString()} ريال</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold">{totalRevenue.toLocaleString()}</p>
+                    <span className="text-xl font-bold">{currency}</span>
+                  </div>
                   <p className="text-sm text-secondary">+{growthPercentage.toFixed(1)}% من الشهر الماضي</p>
                 </div>
-                <DollarSign className="h-8 w-8 text-primary" />
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <span className="text-3xl text-red-500 font-bold">{getCurrencyIcon(currency)}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -162,10 +180,15 @@ const SalesRevenue = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">إجمالي العمولات</p>
-                  <p className="text-2xl font-bold">{totalCommissions.toLocaleString()} ريال</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold">{totalCommissions.toLocaleString()}</p>
+                    <span className="text-xl font-bold">{currency}</span>
+                  </div>
                   <p className="text-sm text-secondary">معدل {((totalCommissions / totalRevenue) * 100).toFixed(1)}%</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-secondary" />
+                <div className="h-12 w-12 rounded-lg bg-secondary/10 flex items-center justify-center">
+                  <span className="text-3xl text-red-500 font-bold">{getCurrencyIcon(currency)}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -175,10 +198,15 @@ const SalesRevenue = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">متوسط قيمة العقد</p>
-                  <p className="text-2xl font-bold">{averageContractValue.toLocaleString()} ريال</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold">{averageContractValue.toLocaleString()}</p>
+                    <span className="text-xl font-bold">{currency}</span>
+                  </div>
                   <p className="text-sm text-accent">+{growthPercentage.toFixed(1)}% من الشهر الماضي</p>
                 </div>
-                <FileText className="h-8 w-8 text-accent" />
+                <div className="h-12 w-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <span className="text-3xl text-red-500 font-bold">{getCurrencyIcon(currency)}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -223,11 +251,17 @@ const SalesRevenue = () => {
                     <div className="flex flex-wrap gap-4">
                       <div className="text-center">
                         <p className="text-sm text-muted-foreground">الإيرادات</p>
-                        <p className="text-lg font-bold">{month.revenue.toLocaleString()} ريال</p>
+                        <div className="flex items-center gap-1 justify-center">
+                          <p className="text-lg font-bold">{month.revenue.toLocaleString()}</p>
+                          <span className="text-base font-bold">{currency}</span>
+                        </div>
                       </div>
                       <div className="text-center">
                         <p className="text-sm text-muted-foreground">العمولة</p>
-                        <p className="text-lg font-bold text-secondary">{month.commissions.toLocaleString()} ريال</p>
+                        <div className="flex items-center gap-1 justify-center">
+                          <p className="text-lg font-bold text-secondary">{month.commissions.toLocaleString()}</p>
+                          <span className="text-base font-bold">{currency}</span>
+                        </div>
                       </div>
                       <div className="text-center">
                         <p className="text-sm text-muted-foreground">النمو</p>
@@ -271,8 +305,14 @@ const SalesRevenue = () => {
                         <p className="text-sm text-muted-foreground">{client.contracts} عقد</p>
                       </div>
                       <div className="text-left">
-                        <p className="font-bold">{client.revenue.toLocaleString()} ريال</p>
-                        <p className="text-sm text-secondary">{client.commissions.toLocaleString()} ريال عمولة</p>
+                        <div className="flex items-center gap-1">
+                          <p className="font-bold">{client.revenue.toLocaleString()}</p>
+                          <span className="font-bold">{currency}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <p className="text-sm text-secondary">{client.commissions.toLocaleString()} عمولة</p>
+                          <span className="text-sm font-bold">{currency}</span>
+                        </div>
                         <Badge className="bg-secondary text-secondary-foreground mt-1">
                           {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}%
                         </Badge>
@@ -299,7 +339,10 @@ const SalesRevenue = () => {
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{item.type}</span>
                       <div className="text-left">
-                        <span className="font-bold">{item.amount.toLocaleString()} ريال</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-bold">{item.amount.toLocaleString()}</span>
+                          <span className="font-bold">{currency}</span>
+                        </div>
                         <span className="text-sm text-muted-foreground ml-2">({item.percentage.toFixed(1)}%)</span>
                       </div>
                     </div>
@@ -314,7 +357,10 @@ const SalesRevenue = () => {
                 <div className="pt-4 border-t">
                   <div className="flex justify-between items-center font-bold">
                     <span>إجمالي العمولات</span>
-                    <span>{totalCommissions.toLocaleString()} ريال</span>
+                    <div className="flex items-center gap-1">
+                      <span>{totalCommissions.toLocaleString()}</span>
+                      <span className="font-bold">{currency}</span>
+                    </div>
                   </div>
                 </div>
               </div>

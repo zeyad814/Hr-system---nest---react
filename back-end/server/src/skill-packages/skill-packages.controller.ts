@@ -24,7 +24,7 @@ export class SkillPackagesController {
   constructor(private readonly skillPackagesService: SkillPackagesService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.HR)
   create(@Body() createSkillPackageDto: CreateSkillPackageDto, @Request() req: any) {
     return this.skillPackagesService.create(createSkillPackageDto, req.user?.sub);
   }
@@ -42,13 +42,13 @@ export class SkillPackagesController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.HR)
   update(@Param('id') id: string, @Body() updateSkillPackageDto: UpdateSkillPackageDto) {
     return this.skillPackagesService.update(id, updateSkillPackageDto);
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.HR)
   remove(@Param('id') id: string) {
     return this.skillPackagesService.remove(id);
   }

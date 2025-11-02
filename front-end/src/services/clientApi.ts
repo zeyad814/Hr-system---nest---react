@@ -483,7 +483,12 @@ export const clientApiService = {
   },
 
   createJobRequest: async (requestData: Partial<JobRequest>) => {
+    console.log('=== CLIENT API CREATE JOB REQUEST ===');
+    console.log('Request data being sent:', JSON.stringify(requestData, null, 2));
+    
     const response = await clientApi.post('/client/job-requests', requestData);
+    
+    console.log('API Response:', response.data);
     return response.data;
   },
 

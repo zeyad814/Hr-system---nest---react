@@ -15,6 +15,8 @@ export enum UserRole {
   CLIENT = 'CLIENT',
   APPLICANT = 'APPLICANT',
   SALES = 'SALES',
+  MANAGER = 'MANAGER',
+  EMPLOYEE = 'EMPLOYEE',
 }
 
 export enum UserStatus {

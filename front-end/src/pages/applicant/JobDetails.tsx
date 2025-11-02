@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,6 +51,35 @@ const JobDetails = () => {
     loadJobDetails()
   }, [id, navigate])
 
+  // Mark as applied if already applied to this job
+  useEffect(() => {
+    const syncAppliedState = async () => {
+      try {
+        const apps = await applicantApiService.getMyApplications()
+        if (job && apps?.some(a => a.jobId === job.id)) {
+          setApplied(true)
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+    syncAppliedState()
+  }, [job])
+
+  const parsedRequirements = useMemo(() => {
+    const raw = job?.requirements || ''
+    if (!raw) return [] as string[]
+    const byNewline = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+    if (byNewline.length > 1) return byNewline
+    return raw.split(',').map(s => s.trim()).filter(Boolean)
+  }, [job?.requirements])
+
+  const parsedSkills = useMemo(() => {
+    const raw = job?.requiredSkills || ''
+    if (!raw) return [] as string[]
+    return raw.split(',').map(s => s.trim()).filter(Boolean)
+  }, [job?.requiredSkills])
+
   const handleApplyToJob = async () => {
     if (!job || applied || applying) return
 
@@ -61,7 +90,8 @@ const JobDetails = () => {
       toast.success('تم التقديم بنجاح! سيتم التواصل معك قريباً')
     } catch (error) {
       console.error('Error applying to job:', error)
-      toast.error('فشل التقديم، يرجى المحاولة مرة أخرى')
+      const message = (error as any)?.response?.data?.message || 'فشل التقديم، يرجى المحاولة مرة أخرى'
+      toast.error(Array.isArray(message) ? message[0] : message)
     } finally {
       setApplying(false)
     }
@@ -215,6 +245,38 @@ const JobDetails = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Requirements */}
+        {parsedRequirements.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>المتطلبات</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc pr-5 space-y-1 text-sm text-muted-foreground">
+                {parsedRequirements.map((req, idx) => (
+                  <li key={idx}>{req}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Required Skills */}
+        {parsedSkills.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>المهارات المطلوبة</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {parsedSkills.map((skill, idx) => (
+                  <Badge key={idx} variant="secondary">{skill}</Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Company Information */}
         <Card>

@@ -248,19 +248,35 @@ const HRJobs = () => {
   };
 
   const submitEdit = async () => {
+    console.log('submitEdit called');
+    console.log('selectedJob:', selectedJob);
+    console.log('formData:', formData);
+    
     if (!selectedJob || !formData.title || !formData.company || !formData.location || !formData.description || !formData.requirements || !formData.salaryRange || !formData.applicationDeadline) {
+      console.log('Validation failed - missing required fields');
       toast({ title: "خطأ", description: t('hr.jobs.validationError'), variant: "destructive" });
       return;
     }
     try {
-      await api.put(`/jobs/${selectedJob.id}`, {
+      console.log('Sending PUT request to:', `/jobs/${selectedJob.id}`);
+      console.log('Request data:', {
         ...formData,
         applicationDeadline: new Date(formData.applicationDeadline).toISOString()
       });
+      
+      await api.put(`/jobs/${selectedJob.id}`, {
+        ...formData,
+        applicationDeadline: new Date(formData.applicationDeadline).toISOString(),
+        clientId: formData.clientId // Ensure clientId is included
+      });
+      
+      console.log('Update successful');
       setIsEditOpen(false);
+      setSelectedJob(null); // Reset selectedJob after successful update
       toast({ title: "تم التحديث", description: t('hr.jobs.jobUpdated') });
       loadJobs();
     } catch (e) {
+      console.error('Update failed:', e);
       toast({ title: "فشل التحديث", description: t('hr.jobs.updateFailed'), variant: "destructive" });
     }
   };

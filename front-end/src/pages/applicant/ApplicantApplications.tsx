@@ -29,6 +29,7 @@ import { MainLayout } from "@/components/layout/MainLayout"
 import { applicantApiService } from "@/services/applicantApi"
 import { toast } from "sonner"
 import { useLanguage } from "@/contexts/LanguageContext"
+import { useSalesCurrency } from "@/contexts/SalesCurrencyContext"
 import {
   Select,
   SelectContent,
@@ -57,6 +58,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 const ApplicantApplications = () => {
   const { t } = useLanguage()
+  const { currency, getCurrencyIcon } = useSalesCurrency()
   const navigate = useNavigate()
 
   // Handle withdraw application
@@ -90,6 +92,16 @@ const ApplicantApplications = () => {
   const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [withdrawing, setWithdrawing] = useState<string[]>([])
+
+  const formatSalary = (raw: string) => {
+    if (!raw) return ''
+    return raw
+      .replace(/\b[A-Z]{3}\b/g, '') // remove currency codes like USD, SAR, AED
+      .replace(/[ر\.س\$€£₹₨]/g, '') // remove common currency symbols if any remain
+      .replace(/[^\d\-\.,\s]/g, '') // keep numbers, dash, comma, dot, spaces
+      .replace(/\s+/g, ' ') // normalize spaces
+      .trim()
+  }
 
   // Transform API data to match UI format
   const transformApiDataToUIFormat = (apiApplications: any[]) => {
@@ -141,9 +153,10 @@ const ApplicantApplications = () => {
         progress: progress,
         logo: `/companies/company-${index + 1}.jpg`,
         applicationId: `APP-${apiApp.id.slice(-6).toUpperCase()}`,
-        notes: `${t('applicant.applications.yourApplication')} ${status === 'مراجعة' ? t('applicant.applications.underReview') : status === 'مقابلة' ? t('applicant.applications.acceptedNextStage') : t('applicant.applications.processed')}`,
+        notes: `${t('applicant.applications.yourApplication')} ${status === 'مراجعة' ? t('applicant.applications.underReview') : status === 'مقابلة' ? t('applicant.applications.acceptedNextStage') : status === 'عرض' ? 'تم إرسال عرض عمل لك' : t('applicant.applications.processed')}`,
         nextStep: status === 'مراجعة' ? t('applicant.applications.waitingHRResponse') : 
                  status === 'مقابلة' ? t('applicant.applications.contactForInterview') :
+                 status === 'عرض' ? 'تم إرسال عرض عمل - راجع التفاصيل' :
                  status === 'مقبول' ? t('applicant.applications.congratulationsAccepted') :
                  status === 'مرفوض' ? t('applicant.applications.canApplyOtherJobs') : t('applicant.applications.applicationWithdrawn'),
         documents: [
@@ -193,6 +206,8 @@ const ApplicantApplications = () => {
         return "bg-yellow-100 text-yellow-800"
       case "مقابلة":
         return "bg-blue-100 text-blue-800"
+      case "عرض":
+        return "bg-green-100 text-green-800"
       case "مقبول":
         return "bg-green-100 text-green-800"
       case "مرفوض":
@@ -537,6 +552,7 @@ const ApplicantApplications = () => {
                   <SelectItem value="all">{t('applicant.applications.status.all')}</SelectItem>
                   <SelectItem value="مراجعة">{t('applicant.applications.status.pending')}</SelectItem>
                   <SelectItem value="مقابلة">{t('applicant.applications.status.interview')}</SelectItem>
+                  <SelectItem value="عرض">عرض عمل</SelectItem>
                   <SelectItem value="مقبول">{t('applicant.applications.status.accepted')}</SelectItem>
                   <SelectItem value="مرفوض">{t('applicant.applications.status.rejected')}</SelectItem>
                 </SelectContent>
@@ -604,22 +620,22 @@ const ApplicantApplications = () => {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          <span>{t('applicant.applications.appliedOn')}: {application.appliedDate}</span>
+                          <span>{t('applicant.applications.appliedOn').replace('{date}', '').replace(/[:：]\s*$/, '')}: {application.appliedDate}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-4 w-4" />
-                          <span>{t('applicant.applications.lastUpdate')}: {application.lastUpdate}</span>
+                          <span>{t('applicant.applications.lastUpdate').replace('{date}', '').replace(/[:：]\s*$/, '')}: {application.lastUpdate}</span>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-2 text-sm mb-3">
-                        <DollarSign className="h-4 w-4 text-green-600" />
-                        <span className="font-medium">{application.salary}</span>
+                        <span className="text-red-500 font-bold">{getCurrencyIcon(currency as any)}</span>
+                        <span className="font-medium">{formatSalary(application.salary)} {currency}</span>
                       </div>
                       
                       <div className="mb-3">
                         <div className="flex justify-between text-sm mb-1">
-                          <span>{t('applicant.applications.progress')}: {application.stage}</span>
+                          <span>{t('applicant.applications.progress') || 'التقدم'}: {application.stage}</span>
                           <span>{application.progress}%</span>
                         </div>
                         <Progress value={application.progress} className="h-2" />

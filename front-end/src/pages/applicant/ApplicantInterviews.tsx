@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -42,6 +43,12 @@ const ApplicantInterviews = () => {
   const [selectedInterview, setSelectedInterview] = useState<Interview | null>(null)
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false)
   const [videoCallInterview, setVideoCallInterview] = useState<Interview | null>(null)
+  // Interview response states
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
+  const [rejectInterview, setRejectInterview] = useState<Interview | null>(null)
+  const [rejectDate, setRejectDate] = useState("")
+  const [rejectTime, setRejectTime] = useState("")
+  const [rejectNotes, setRejectNotes] = useState("")
 
   // Fetch interviews from backend
   const fetchInterviews = async () => {
@@ -123,6 +130,54 @@ const ApplicantInterviews = () => {
   const handleVideoCallEnd = () => {
     setIsVideoCallOpen(false)
     setVideoCallInterview(null)
+  }
+
+  // Handle accept interview
+  const handleAcceptInterview = async (interview: Interview) => {
+    try {
+      await applicantApiService.respondToInterview(interview.id, 'ACCEPTED')
+      toast.success(t('applicant.interviews.accepted') || 'تم قبول المقابلة')
+      fetchInterviews()
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || t('applicant.interviews.error') || 'حدث خطأ')
+    }
+  }
+
+  // Handle reject interview
+  const handleRejectInterview = (interview: Interview) => {
+    setRejectInterview(interview)
+    setRejectDate("")
+    setRejectTime("")
+    setRejectNotes("")
+    setIsRejectDialogOpen(true)
+  }
+
+  // Confirm reject interview
+  const confirmRejectInterview = async () => {
+    if (!rejectInterview) return
+    
+    try {
+      const suggestedDate = rejectDate && rejectTime 
+        ? new Date(`${rejectDate}T${rejectTime}`).toISOString()
+        : undefined
+
+      await applicantApiService.respondToInterview(
+        rejectInterview.id, 
+        'REJECTED',
+        suggestedDate,
+        rejectNotes || undefined
+      )
+      
+      toast.success(t('applicant.interviews.rejectionSent') || 'تم إرسال طلب رفض المقابلة')
+      setIsRejectDialogOpen(false)
+      setRejectInterview(null)
+      setRejectDate("")
+      setRejectTime("")
+      setRejectNotes("")
+      fetchInterviews()
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || t('applicant.interviews.error') || 'حدث خطأ')
+    }
   }
 
   return (
@@ -400,6 +455,41 @@ const ApplicantInterviews = () => {
                            interview.status === 'RESCHEDULED' ? t('applicant.interviews.status.rescheduled') : interview.status}
                         </Badge>
                         
+                        {/* أزرار القبول/الرفض - تظهر فقط للمقابلات المجدولة التي لم يتم الرد عليها */}
+                        {(interview.status === 'SCHEDULED' || interview.status === 'CONFIRMED') && 
+                         !interview.applicantResponse && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleAcceptInterview(interview)}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4 ml-2" />
+                              {t('applicant.interviews.accept') || 'قبول'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRejectInterview(interview)}
+                              className="border-red-300 text-red-600 hover:bg-red-50"
+                            >
+                              <XCircle className="h-4 w-4 ml-2" />
+                              {t('applicant.interviews.reject') || 'رفض'}
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* حالة الرد إذا كان موجوداً */}
+                        {interview.applicantResponse === 'ACCEPTED' && (
+                          <Badge className="bg-green-100 text-green-800">✓ {t('applicant.interviews.accepted') || 'تم القبول'}</Badge>
+                        )}
+                        {interview.applicantResponse === 'REJECTED' && interview.hrResponse === 'PENDING' && (
+                          <Badge className="bg-yellow-100 text-yellow-800">⏳ {t('applicant.interviews.pendingHRReview') || 'في انتظار مراجعة HR'}</Badge>
+                        )}
+                        {interview.applicantResponse === 'REJECTED' && interview.hrResponse === 'APPROVED' && (
+                          <Badge className="bg-blue-100 text-blue-800">✓ {t('applicant.interviews.rescheduled') || 'تم إعادة الجدولة'}</Badge>
+                        )}
+                        
                         <Button
                           variant="outline"
                           size="sm"
@@ -582,6 +672,70 @@ const ApplicantInterviews = () => {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Reject Interview Dialog */}
+        <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+          <DialogContent className="max-w-md" dir="rtl">
+            <DialogHeader>
+              <DialogTitle>رفض المقابلة</DialogTitle>
+              <DialogDescription>
+                يمكنك رفض المقابلة واقتراح ميعاد جديد. سيتم إرسال الطلب للموافقة.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {rejectInterview && (
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm font-medium">المقابلة: {rejectInterview.title}</p>
+                  <p className="text-xs text-gray-600">
+                    الميعاد الأصلي: {new Date(rejectInterview.scheduledAt).toLocaleString('ar-SA')}
+                  </p>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label>ميعاد مقترح جديد (اختياري)</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">التاريخ</Label>
+                    <Input 
+                      type="date" 
+                      value={rejectDate}
+                      onChange={(e) => setRejectDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">الوقت</Label>
+                    <Input 
+                      type="time" 
+                      value={rejectTime}
+                      onChange={(e) => setRejectTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>ملاحظات (اختياري)</Label>
+                <Textarea 
+                  value={rejectNotes}
+                  onChange={(e) => setRejectNotes(e.target.value)}
+                  placeholder="اكتب سبب الرفض أو أي ملاحظات..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
+                  إلغاء
+                </Button>
+                <Button onClick={confirmRejectInterview} className="bg-red-600 hover:bg-red-700">
+                  إرسال طلب الرفض
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </div>
     </MainLayout>

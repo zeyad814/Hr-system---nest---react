@@ -26,7 +26,14 @@
       "Bash(awk:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(expr:*)"
+      "Bash(expr:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command \"Start-Process ''C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe''\")",
+      "Bash(timeout 20 bash:*)",
+      "Bash(docker logs:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(npm run seed:*)",
+      "Bash(npx prisma studio:*)"
     ],
     "deny": [],
     "ask": []

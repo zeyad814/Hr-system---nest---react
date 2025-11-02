@@ -28,7 +28,9 @@ import {
   UserCheck,
   Video,
   VideoOff,
-  Plus
+  Plus,
+  DollarSign,
+  Gift
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
@@ -72,6 +74,7 @@ interface Applicant {
   interviewDate: string | null;
   jobId?: string;
   jobTitle?: string;
+  clientId?: string;
 }
 
 const HRCandidates = () => {
@@ -150,29 +153,107 @@ const HRCandidates = () => {
     try {
       const response = await hrApiService.getApplicants();
       const apiApplicants = response.data || [];
-      
-      const transformedApplicants: Applicant[] = apiApplicants.map((apiApplicant: ApiApplicant) => ({
-        id: apiApplicant.id,
-        userId: apiApplicant.userId, // Add userId field for API calls
-        applicationId: apiApplicant.applications?.[0]?.id, // Add applicationId for status updates
-        name: apiApplicant.user.name,
-        email: apiApplicant.user.email,
-        phone: apiApplicant.phone || 'غير محدد',
-        position: apiApplicant.applications?.[0]?.job?.title || 'غير محدد',
-        experience: apiApplicant.experience || 'غير محدد',
-        location: apiApplicant.location || 'غير محدد',
-        status: apiApplicant.applications?.[0]?.status || 'PENDING',
-        appliedDate: new Date(apiApplicant.createdAt).toLocaleDateString('ar-SA'),
-        rating: apiApplicant.rating || 0,
-        skills: apiApplicant.skills ? apiApplicant.skills.split(',') : [],
-        avatar: apiApplicant.avatar || '',
-        resumeUrl: apiApplicant.resumeUrl || '',
-        interviewScheduled: apiApplicant.interviews && apiApplicant.interviews.length > 0,
-        interviewDate: apiApplicant.interviews?.[0]?.scheduledAt ? new Date(apiApplicant.interviews[0].scheduledAt).toLocaleString('ar-SA') : null,
-        jobId: apiApplicant.applications?.[0]?.jobId,
-        jobTitle: apiApplicant.applications?.[0]?.job?.title
-      }));
-      
+
+      // Fetch all interviews from main Interviews table (المقابلات المحفوظة في الداتابيز)
+      let allInterviews: any[] = [];
+      try {
+        const interviewsResponse = await hrApiService.getInterviews();
+        allInterviews = interviewsResponse?.data || [];
+        console.log('Fetched interviews from main table:', allInterviews.length);
+      } catch (error) {
+        console.error('Error fetching interviews from main table:', error);
+      }
+
+      // Fetch all interview schedules to check if candidates have scheduled interviews
+      let interviewSchedules: any[] = [];
+      try {
+        const schedulesResponse = await hrApiService.getAllInterviewSchedules();
+        interviewSchedules = schedulesResponse || [];
+      } catch (error) {
+        console.error('Error fetching interview schedules:', error);
+      }
+
+      const transformedApplicants: Applicant[] = apiApplicants.flatMap((apiApplicant: ApiApplicant) => {
+        const apps = apiApplicant.applications || [];
+        // إذا لم توجد طلبات، نرجّع صف واحد عام
+        if (apps.length === 0) {
+          return [{
+            id: apiApplicant.id,
+            userId: apiApplicant.userId,
+            applicationId: undefined,
+            name: apiApplicant.user?.name,
+            email: apiApplicant.user?.email,
+            phone: apiApplicant.phone || 'غير محدد',
+            position: 'غير محدد',
+            experience: apiApplicant.experience || 'غير محدد',
+            location: apiApplicant.location || 'غير محدد',
+            status: 'PENDING',
+            appliedDate: new Date(apiApplicant.createdAt).toLocaleDateString('ar-SA'),
+            rating: apiApplicant.rating || 0,
+            skills: apiApplicant.skills ? apiApplicant.skills.split(',') : [],
+            avatar: apiApplicant.avatar || '',
+            resumeUrl: apiApplicant.resumeUrl || '',
+            interviewScheduled: (apiApplicant.interviews && apiApplicant.interviews.length > 0) || false,
+            interviewDate: apiApplicant.interviews?.[0]?.scheduledAt ? new Date(apiApplicant.interviews[0].scheduledAt).toLocaleString('ar-SA') : null,
+            jobId: undefined,
+            jobTitle: undefined,
+          }];
+        }
+
+        // خلاف ذلك: صف لكل طلب
+        return apps.map((app: any, idx: number) => {
+          const id = `${apiApplicant.id}-${app.id || idx}`;
+          
+          // البحث في جدول Interviews الرئيسي أولاً (المقابلات المحفوظة في الداتابيز)
+          const mainTableInterview = allInterviews.find(
+            (iv: any) => iv.applicationId === app.id && (iv.status === 'SCHEDULED' || iv.status === 'CONFIRMED')
+          );
+
+          // جدولة المقابلة الخاصة بهذا الطلب فقط (من جدول الجدولة)
+          const scheduledInterview = interviewSchedules.find(
+            (schedule: any) =>
+              schedule.candidateEmail === apiApplicant.user?.email &&
+              schedule.applicationId === app.id &&
+              schedule.status === 'SCHEDULED'
+          );
+
+          // المقابلات المرتبطة مباشرة بالمتقدم (من بيانات API)
+          const relatedInterview = (apiApplicant.interviews || []).find(
+            (iv: any) => iv.applicationId === app.id
+          );
+
+          // استخدام المقابلة من الجدول الرئيسي أولاً (المحفوظة في الداتابيز)، ثم الجدولة، ثم المرتبطة بالمتقدم
+          const interviewToUse = mainTableInterview || scheduledInterview || relatedInterview;
+
+          return {
+            id,
+            userId: apiApplicant.userId,
+            applicationId: app.id,
+            name: apiApplicant.user?.name,
+            email: apiApplicant.user?.email,
+            phone: apiApplicant.phone || 'غير محدد',
+            position: app.job?.title || 'غير محدد',
+            experience: apiApplicant.experience || 'غير محدد',
+            location: apiApplicant.location || 'غير محدد',
+            status: app.status || 'PENDING',
+            appliedDate: new Date(app.createdAt || apiApplicant.createdAt).toLocaleDateString('ar-SA'),
+            rating: apiApplicant.rating || 0,
+            skills: apiApplicant.skills ? apiApplicant.skills.split(',') : [],
+            avatar: apiApplicant.avatar || '',
+            resumeUrl: apiApplicant.resumeUrl || '',
+            interviewScheduled: !!interviewToUse,
+            interviewDate: mainTableInterview
+              ? new Date(mainTableInterview.scheduledAt).toLocaleString('ar-SA')
+              : (scheduledInterview
+                  ? new Date(scheduledInterview.scheduledDate).toLocaleString('ar-SA')
+                  : (relatedInterview?.scheduledAt ? new Date(relatedInterview.scheduledAt).toLocaleString('ar-SA') : null)),
+            jobId: app.jobId,
+            jobTitle: app.job?.title,
+            clientId: app.job?.clientId,
+          } as Applicant;
+        });
+      });
+
       setApplicants(transformedApplicants);
     } catch (error) {
       console.error('Error fetching applicants:', error);
@@ -224,10 +305,24 @@ const HRCandidates = () => {
 
   const fetchClients = async () => {
     try {
+      console.log('=== FETCHING CLIENTS ===');
       const response = await hrApiService.getClients();
-      setClients(response.data || []);
+      console.log('Clients response:', response);
+      const clientsData = response.data || [];
+      setClients(clientsData);
+      console.log('Clients set:', clientsData.length, 'clients');
+      
+      if (clientsData.length === 0) {
+        console.warn('No clients found in API response');
+        toast({
+          title: "تحذير",
+          description: "لم يتم العثور على عملاء. سيتم استخدام بيانات تجريبية.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Error fetching clients:', error);
+      console.log('Using mock clients as fallback');
       const mockClients: Client[] = [
         { 
           id: "1", 
@@ -331,13 +426,13 @@ const HRCandidates = () => {
 
   const updateApplicantStatus = async (applicantId: string, status: string) => {
     try {
-      // Find the applicant to get the userId
+      // Find the applicant to get the userId and applicationId
       const applicant = applicants.find(a => a.id === applicantId);
       
-      if (!applicant?.userId) {
+      if (!applicant) {
         toast({
           title: "خطأ في التحديث",
-          description: "لا يمكن العثور على معرف المستخدم",
+          description: "لا يمكن العثور على المرشح",
           variant: "destructive",
         });
         return;
@@ -347,14 +442,22 @@ const HRCandidates = () => {
       const statusMap: { [key: string]: string } = {
         "مقبول": "HIRED",
         "مرفوض": "REJECTED",
-        "قيد المراجعة": "REVIEWED",
+        "قيد المراجعة": "PENDING",
         "مقابلة": "INTERVIEW",
         "عرض": "OFFER"
       };
       
       const englishStatus = statusMap[status] || status;
       
-      await hrApiService.updateApplicantStatus(applicant.userId, englishStatus);
+      // إذا كان status هو OFFER وكان هناك applicationId، استخدم updateApplicationStatus
+      if (englishStatus === 'OFFER' && applicant.applicationId) {
+        await hrApiService.updateApplicationStatus(applicant.applicationId, englishStatus);
+      } else if (applicant.userId) {
+        // للـ status الأخرى، استخدم updateApplicantStatus
+        await hrApiService.updateApplicantStatus(applicant.userId, englishStatus);
+      } else {
+        throw new Error('لا يمكن العثور على معرف المستخدم أو الطلب');
+      }
       
       setApplicants(prev => prev.map(applicant => 
         applicant.id === applicantId 
@@ -366,6 +469,9 @@ const HRCandidates = () => {
         title: "تم التحديث",
         description: `تم تحديث حالة ${applicant.name} إلى ${status}`,
       });
+      
+      // إعادة تحميل البيانات
+      await fetchApplicants();
     } catch (error) {
       console.error('Error updating applicant status:', error);
       toast({
@@ -377,7 +483,31 @@ const HRCandidates = () => {
   };
 
   const recommendToClient = async () => {
-    if (!selectedApplicant || !selectedClient) {
+    console.log('=== recommendToClient function called ===');
+    console.log('Selected applicant:', selectedApplicant);
+    console.log('Selected client:', selectedClient);
+    console.log('Recommendation note:', recommendationNote);
+    console.log('Available clients:', clients.map(c => ({ id: c.id, name: c.name, companyName: c.companyName })));
+    
+    // Add immediate feedback
+    toast({
+      title: "جاري المعالجة...",
+      description: "جاري إرسال الترشيح...",
+    });
+
+    // Validate required fields
+    if (!selectedApplicant) {
+      console.log('Validation failed: No applicant selected');
+      toast({
+        title: "خطأ",
+        description: "يرجى اختيار المرشح",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedClient || selectedClient.trim() === '') {
+      console.log('Validation failed: No client selected');
       toast({
         title: "خطأ",
         description: "يرجى اختيار العميل",
@@ -386,14 +516,45 @@ const HRCandidates = () => {
       return;
     }
 
+    // Validate that the selected client exists in the available clients
+    const selectedClientData = clients.find(client => client.id === selectedClient);
+    if (!selectedClientData) {
+      console.log('Validation failed: Selected client not found in available clients');
+      console.log('Selected client ID:', selectedClient);
+      console.log('Available client IDs:', clients.map(c => c.id));
+      toast({
+        title: "خطأ",
+        description: "العميل المحدد غير موجود في القائمة",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log('Selected client data:', selectedClientData);
+
+    if (!recommendationNote || recommendationNote.trim() === '') {
+      console.log('Validation failed: No recommendation note');
+      toast({
+        title: "خطأ",
+        description: "يرجى كتابة ملاحظة الترشيح",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('All validations passed, proceeding with API call');
+
     try {
+      console.log('Calling hrApiService.recommendApplicant...');
       await hrApiService.recommendApplicant(selectedApplicant.id, selectedClient, recommendationNote);
       
+      console.log('Recommendation sent successfully');
       toast({
         title: "تم الإرسال",
         description: `تم ترشيح ${selectedApplicant.name} للعميل بنجاح`,
       });
 
+      // Reset form
       setIsRecommendDialogOpen(false);
       setSelectedApplicant(null);
       setRecommendationNote("");
@@ -409,50 +570,161 @@ const HRCandidates = () => {
   };
 
   const handleScheduleInterview = async () => {
-    if (!selectedApplicantForInterview || !interviewDate || !interviewTime) {
+    console.log('=== handleScheduleInterview function called ===');
+    console.log('Selected applicant:', selectedApplicantForInterview);
+    console.log('Interview date:', interviewDate);
+    console.log('Interview time:', interviewTime);
+    
+    // Add immediate feedback
+    toast({
+      title: "جاري المعالجة...",
+      description: "جاري جدولة المقابلة...",
+    });
+
+    // Validate required fields
+    if (!selectedApplicantForInterview) {
+      console.log('Validation failed: No applicant selected');
       toast({
         title: "خطأ",
-        description: "يرجى ملء جميع الحقول المطلوبة",
+        description: "يرجى اختيار المرشح",
         variant: "destructive",
       });
       return;
     }
 
-    try {
-      const scheduledAt = new Date(`${interviewDate}T${interviewTime}`).toISOString();
-      
-      await hrApiService.scheduleInterview({
-        applicationId: selectedApplicantForInterview.id,
-        title: `مقابلة مع ${selectedApplicantForInterview.name}`,
-        type: 'VIDEO',
-        scheduledAt,
-        duration: 60
+    if (!interviewDate || interviewDate.trim() === '') {
+      console.log('Validation failed: No interview date');
+      toast({
+        title: "خطأ",
+        description: "يرجى اختيار تاريخ المقابلة",
+        variant: "destructive",
       });
+      return;
+    }
 
-      setApplicants(prev => prev.map(applicant => 
-        applicant.id === selectedApplicantForInterview.id 
-          ? { 
-              ...applicant, 
-              interviewScheduled: true,
-              interviewDate: new Date(scheduledAt).toLocaleString('ar-SA')
-            } 
-          : applicant
-      ));
+    if (!interviewTime || interviewTime.trim() === '') {
+      console.log('Validation failed: No interview time');
+      toast({
+        title: "خطأ",
+        description: "يرجى اختيار وقت المقابلة",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    // Validate that the scheduled time is in the future
+    const scheduledAt = new Date(`${interviewDate}T${interviewTime}`);
+    const now = new Date();
+    
+    if (scheduledAt <= now) {
+      console.log('Validation failed: Scheduled time is in the past');
+      toast({
+        title: "خطأ",
+        description: "يرجى اختيار موعد في المستقبل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('All validations passed, proceeding with API call');
+    console.log('Scheduled at:', scheduledAt.toISOString());
+
+    try {
+      console.log('Calling hrApiService.scheduleInterviewSchedule...');
+      console.log('Selected applicant ID:', selectedApplicantForInterview.id);
+      console.log('Selected applicant data:', selectedApplicantForInterview);
+      
+      // Use the interview schedule endpoint instead of the regular interview endpoint
+      // This endpoint works with candidate information directly
+      const schedulePayload = {
+        title: `مقابلة مع ${selectedApplicantForInterview.name}`,
+        candidateName: selectedApplicantForInterview.name,
+        candidateEmail: selectedApplicantForInterview.email || 'candidate@example.com',
+        interviewerName: 'HR Manager', // You might want to get this from user context
+        interviewerEmail: 'hr@company.com', // You might want to get this from user context
+        scheduledDate: scheduledAt.toISOString(),
+        duration: 60,
+        meetingType: 'GOOGLE_MEET',
+        notes: `مقابلة مجدولة مع ${selectedApplicantForInterview.name}`,
+        applicationId: selectedApplicantForInterview.applicationId,
+      } as any;
+
+      // Persist interview in main interviews table (ensures it survives reload)
+      try {
+        await hrApiService.scheduleInterview({
+          applicationId: selectedApplicantForInterview.applicationId || selectedApplicantForInterview.id,
+          title: schedulePayload.title,
+          description: schedulePayload.notes,
+          type: 'VIDEO',
+          scheduledAt: scheduledAt.toISOString(),
+          duration: schedulePayload.duration,
+          notes: schedulePayload.notes,
+          interviewerIds: ['current_user_id']
+        });
+      } catch (e) {
+        console.warn('Failed to schedule main interview, fallback to schedule endpoint only:', e);
+      }
+
+      // Also store in schedule service for calendar integrations
+      await hrApiService.scheduleInterviewSchedule(schedulePayload);
+
+      // Set applicant status to INTERVIEW after successful scheduling
+      if (selectedApplicantForInterview.userId) {
+        try {
+          await hrApiService.updateApplicantStatus(selectedApplicantForInterview.userId, 'INTERVIEW');
+        } catch (e) {
+          console.warn('Failed to update applicant status to INTERVIEW:', e);
+        }
+      }
+
+      console.log('Interview scheduled successfully');
       toast({
         title: "تم الجدولة",
-        description: `تم جدولة المقابلة مع ${selectedApplicantForInterview.name}`,
+        description: `تم جدولة مقابلة مع ${selectedApplicantForInterview.name} بنجاح`,
       });
 
+      // Update local state
+      setApplicants(prev => prev.map(applicant => {
+        if (applicant.id !== selectedApplicantForInterview.id) return applicant;
+        return {
+          ...applicant,
+          interviewScheduled: true,
+          interviewDate: scheduledAt.toLocaleString('ar-SA'),
+          status: 'INTERVIEW',
+        };
+      }));
+
+      // Close dialog and reset form
       setIsScheduleDialogOpen(false);
       setSelectedApplicantForInterview(null);
       setInterviewDate("");
       setInterviewTime("");
     } catch (error) {
-      console.error('Error scheduling interview:', error);
+      console.error('=== ERROR SCHEDULING INTERVIEW ===');
+      console.error('Error details:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      // Handle specific error messages
+      let errorMessage = 'حدث خطأ أثناء جدولة المقابلة';
+      
+      if (error.response?.data?.message) {
+        errorMessage = `خطأ من الخادم: ${error.response.data.message}`;
+      } else if (error.response?.status === 400) {
+        errorMessage = 'بيانات غير صحيحة. يرجى التحقق من المعلومات المدخلة';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'لم يتم العثور على المرشح المحدد أو خدمة الجدولة غير متاحة';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'ليس لديك صلاحية لجدولة مقابلة';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'خطأ في الخادم. يرجى المحاولة مرة أخرى';
+      } else if (error.message) {
+        errorMessage = `خطأ في الاتصال: ${error.message}`;
+      }
+      
       toast({
         title: "خطأ في الجدولة",
-        description: "حدث خطأ أثناء جدولة المقابلة",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -547,6 +819,9 @@ const HRCandidates = () => {
       case "مقابلة":
       case "INTERVIEW":
         return "bg-info text-info-foreground";
+      case "عرض":
+      case "OFFER":
+        return "bg-green-100 text-green-800";
       default:
         return "bg-muted text-muted-foreground";
     }
@@ -566,10 +841,14 @@ const HRCandidates = () => {
       case "مقابلة":
       case "INTERVIEW":
         return <Video className="h-3 w-3 ml-1" />;
+      case "عرض":
+      case "OFFER":
+        return <FileText className="h-3 w-3 ml-1" />;
       default:
         return <FileText className="h-3 w-3 ml-1" />;
     }
   };
+
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -637,9 +916,10 @@ const HRCandidates = () => {
                 <SelectContent>
                   <SelectItem value="all">{t('hr.candidates.allStatuses')}</SelectItem>
                   <SelectItem value="قيد المراجعة">{t('hr.candidates.pending')}</SelectItem>
+                  <SelectItem value="مقابلة">{t('hr.candidates.interview')}</SelectItem>
+                  <SelectItem value="عرض">{t('hr.candidates.offer') || 'عرض'}</SelectItem>
                   <SelectItem value="مقبول">{t('hr.candidates.accepted')}</SelectItem>
                   <SelectItem value="مرفوض">{t('hr.candidates.rejected')}</SelectItem>
-                  <SelectItem value="مقابلة">{t('hr.candidates.interview')}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={positionFilter} onValueChange={setPositionFilter}>
@@ -772,6 +1052,12 @@ const HRCandidates = () => {
                         ) : (
                           <div className="text-xs sm:text-sm">
                             <div className="text-muted-foreground mb-1">{t('hr.candidates.notScheduled')}</div>
+                            {candidate.status !== 'PENDING' && candidate.status !== 'قيد الانتظار' ? (
+                              <Button size="sm" variant="outline" className="h-5 px-1 sm:h-6 sm:px-2 text-xs opacity-50 cursor-not-allowed" disabled>
+                                <Plus className="h-2 w-2 sm:h-3 sm:w-3 ml-1" />
+                                {t('hr.candidates.schedule')}
+                              </Button>
+                            ) : (
                             <Dialog open={isScheduleDialogOpen && selectedApplicantForInterview?.id === candidate.id} onOpenChange={(open) => {
                               setIsScheduleDialogOpen(open);
                               if (open) {
@@ -797,26 +1083,42 @@ const HRCandidates = () => {
                                 </DialogHeader>
                                 <div className="space-y-4">
                                   <div>
-                                    <label className="text-sm font-medium mb-2 block">{t('hr.candidates.interviewDate')}</label>
+                                    <label className="text-sm font-medium mb-2 block">
+                                      {t('hr.candidates.interviewDate')} <span className="text-red-500">*</span>
+                                    </label>
                                     <Input
                                       type="date"
                                       value={interviewDate}
                                       onChange={(e) => setInterviewDate(e.target.value)}
+                                      required
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-sm font-medium mb-2 block">{t('hr.candidates.interviewTime')}</label>
+                                    <label className="text-sm font-medium mb-2 block">
+                                      {t('hr.candidates.interviewTime')} <span className="text-red-500">*</span>
+                                    </label>
                                     <Input
                                       type="time"
                                       value={interviewTime}
                                       onChange={(e) => setInterviewTime(e.target.value)}
+                                      required
                                     />
                                   </div>
+                                  
+                                  {/* Required fields note */}
+                                  <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                                    <span className="text-red-500">*</span> الحقول المطلوبة
+                                  </div>
+                                  
                                   <div className="flex gap-2 justify-end">
-                                    <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>
+                                    <Button variant="outline" onClick={() => {
+                                      setIsScheduleDialogOpen(false);
+                                      setInterviewDate("");
+                                      setInterviewTime("");
+                                    }}>
                                       {t('hr.candidates.cancel')}
                                     </Button>
-                                    <Button onClick={handleScheduleInterview}>
+                                    <Button onClick={handleScheduleInterview} type="button">
                                       <Calendar className="h-4 w-4 ml-2" />
                                       {t('hr.candidates.scheduleInterview')}
                                     </Button>
@@ -824,6 +1126,7 @@ const HRCandidates = () => {
                                 </div>
                               </DialogContent>
                             </Dialog>
+                            )}
                           </div>
                         )}
                       </ResponsiveTableCell>
@@ -871,6 +1174,15 @@ const HRCandidates = () => {
                           >
                             <XCircle className="h-2 w-2 sm:h-3 sm:w-3" />
                           </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-6 w-6 sm:h-8 sm:w-8 p-0 text-green-600" 
+                            title={t('hr.candidates.offer') || 'تحويل إلى عرض'}
+                            onClick={() => updateApplicantStatus(candidate.id, "عرض")}
+                          >
+                            <Gift className="h-2 w-2 sm:h-3 sm:w-3" />
+                          </Button>
                           <Dialog open={isRecommendDialogOpen && selectedApplicant?.id === candidate.id} onOpenChange={(open) => {
                             setIsRecommendDialogOpen(open);
                             if (open) {
@@ -900,8 +1212,10 @@ const HRCandidates = () => {
                               </DialogHeader>
                               <div className="space-y-4">
                                 <div>
-                                  <label className="text-sm font-medium mb-2 block">{t('hr.candidates.selectClient')}</label>
-                                  <Select value={selectedClient} onValueChange={setSelectedClient}>
+                                  <label className="text-sm font-medium mb-2 block">
+                                    {t('hr.candidates.selectClient')} <span className="text-red-500">*</span>
+                                  </label>
+                                  <Select value={selectedClient} onValueChange={setSelectedClient} required>
                                     <SelectTrigger>
                                       <SelectValue placeholder={t('hr.candidates.selectClient')} />
                                     </SelectTrigger>
@@ -915,19 +1229,32 @@ const HRCandidates = () => {
                                   </Select>
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium mb-2 block">{t('hr.candidates.recommendationNote')}</label>
+                                  <label className="text-sm font-medium mb-2 block">
+                                    {t('hr.candidates.recommendationNote')} <span className="text-red-500">*</span>
+                                  </label>
                                   <Textarea
                                     placeholder={t('hr.candidates.recommendationPlaceholder')}
                                     value={recommendationNote}
                                     onChange={(e) => setRecommendationNote(e.target.value)}
                                     rows={4}
+                                    required
                                   />
                                 </div>
+                                
+                                {/* Required fields note */}
+                                <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                                  <span className="text-red-500">*</span> الحقول المطلوبة
+                                </div>
+                                
                                 <div className="flex gap-2 justify-end">
-                                  <Button variant="outline" onClick={() => setIsRecommendDialogOpen(false)}>
+                                  <Button variant="outline" onClick={() => {
+                                    setIsRecommendDialogOpen(false);
+                                    setSelectedClient("");
+                                    setRecommendationNote("");
+                                  }}>
                                     {t('hr.candidates.cancel')}
                                   </Button>
-                                  <Button onClick={recommendToClient}>
+                                  <Button onClick={recommendToClient} type="button">
                                     <Send className="h-4 w-4 ml-2" />
                                     {t('hr.candidates.sendRecommendation')}
                                   </Button>
@@ -957,6 +1284,7 @@ const HRCandidates = () => {
             </DialogContent>
           </Dialog>
         )}
+
       </div>
     </MainLayout>
   );

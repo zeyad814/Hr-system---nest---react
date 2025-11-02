@@ -34,7 +34,7 @@ export class ContractsController {
    * POST /api/contracts
    */
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.SALES)
+  @Roles(UserRole.ADMIN, UserRole.SALES, UserRole.HR)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body(ValidationPipe) createContractDto: CreateContractDto) {
     return this.contractsService.create(createContractDto);
@@ -45,9 +45,23 @@ export class ContractsController {
    * GET /api/contracts
    */
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.SALES, UserRole.HR)
+  @Roles(UserRole.ADMIN, UserRole.SALES, UserRole.HR, UserRole.APPLICANT)
   async findAll(@Query(ValidationPipe) query: ContractQueryDto) {
     return this.contractsService.findAll(query);
+  }
+
+  /**
+   * ردّ المتقدم على العقد (قبول/رفض)
+   * PATCH /api/contracts/:id/applicant-response
+   */
+  @Patch(':id/applicant-response')
+  @Roles(UserRole.APPLICANT)
+  async applicantRespond(
+    @Param('id') id: string,
+    @Body('action') action: 'ACCEPT' | 'REJECT',
+    @Body('notes') notes?: string,
+  ) {
+    return this.contractsService.applicantRespond(id, action, notes);
   }
 
   /**
@@ -65,7 +79,7 @@ export class ContractsController {
    * GET /api/contracts/:id
    */
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.SALES, UserRole.HR, UserRole.CLIENT)
+  @Roles(UserRole.ADMIN, UserRole.SALES, UserRole.HR, UserRole.CLIENT, UserRole.APPLICANT)
   async findOne(@Param('id') id: string) {
     return this.contractsService.findOne(id);
   }

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext.tsx'
 import { LanguageProvider } from './contexts/LanguageContext.tsx'
+import { SalesCurrencyProvider } from './contexts/SalesCurrencyContext.tsx'
 import './index.css'
 
 createRoot(document.getElementById("root")!).render(
@@ -17,7 +18,9 @@ createRoot(document.getElementById("root")!).render(
     >
       <ThemeProvider>
         <LanguageProvider>
-          <App />
+          <SalesCurrencyProvider>
+            <App />
+          </SalesCurrencyProvider>
         </LanguageProvider>
       </ThemeProvider>
     </BrowserRouter>

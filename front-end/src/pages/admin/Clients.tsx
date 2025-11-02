@@ -56,6 +56,8 @@ const AdminClients = () => {
   const [clients, setClients] = useState<ClientItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -158,9 +160,12 @@ const AdminClients = () => {
     }
   };
 
-  const filtered = clients.filter(c =>
-    c.name?.toLowerCase().includes(query.toLowerCase()) || c.email?.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = clients.filter(c => {
+    const matchesSearch = c.name?.toLowerCase().includes(query.toLowerCase()) ||
+                          c.email?.toLowerCase().includes(query.toLowerCase());
+    const matchesStatus = statusFilter === "ALL" || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <MainLayout userRole="admin" userName="محمد أحمد">
@@ -192,9 +197,16 @@ const AdminClients = () => {
                   />
                 </div>
               </div>
-              <Button variant="outline" className="gap-1 sm:gap-2 text-sm sm:text-base w-full sm:w-auto">
+              <Button
+                variant="outline"
+                className="gap-1 sm:gap-2 text-sm sm:text-base w-full sm:w-auto"
+                onClick={() => setShowFilterDialog(true)}
+              >
                 <Filter className="h-3 w-3 sm:h-4 sm:w-4" />
                 {t('admin.clients.filter')}
+                {statusFilter !== "ALL" && (
+                  <Badge variant="secondary" className="mr-1 text-xs">1</Badge>
+                )}
               </Button>
             </div>
           </CardContent>
@@ -574,6 +586,49 @@ const AdminClients = () => {
         </DialogContent>
         </Dialog>
       )}
+
+      {/* Filter Dialog */}
+      <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t('admin.clients.filterTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('admin.clients.filterDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('admin.clients.filterByStatus')}</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('admin.clients.selectStatus')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">{t('admin.clients.allStatuses')}</SelectItem>
+                  <SelectItem value="NEW">{t('admin.clients.statusNew')}</SelectItem>
+                  <SelectItem value="NEGOTIATION">{t('admin.clients.statusNegotiation')}</SelectItem>
+                  <SelectItem value="SIGNED">{t('admin.clients.statusSigned')}</SelectItem>
+                  <SelectItem value="NOT_INTERESTED">{t('admin.clients.statusNotInterested')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStatusFilter("ALL");
+                setShowFilterDialog(false);
+              }}
+            >
+              {t('admin.clients.clearFilters')}
+            </Button>
+            <Button onClick={() => setShowFilterDialog(false)}>
+              {t('admin.clients.applyFilters')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!clientToDelete} onOpenChange={() => setClientToDelete(null)}>

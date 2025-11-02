@@ -24,6 +24,7 @@ import { ContractsModule } from './contracts/contracts.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { SettingsModule } from './settings/settings.module';
 import { SkillPackagesModule } from './skill-packages/skill-packages.module';
+import { SalesOffersModule } from './sales-offers/sales-offers.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { SkillPackagesModule } from './skill-packages/skill-packages.module';
     ActivitiesModule,
     SettingsModule,
     SkillPackagesModule,
+    SalesOffersModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

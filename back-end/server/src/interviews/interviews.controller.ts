@@ -21,6 +21,8 @@ import {
   UpdateInterviewDto,
   UpdateInterviewStatusDto,
   InterviewFiltersDto,
+  ApplicantInterviewResponseDto,
+  HRInterviewReviewDto,
 } from './dto/interview.dto';
 
 @Controller('interviews')
@@ -61,6 +63,28 @@ export class InterviewsController {
   @Roles('APPLICANT')
   async getMyInterviews(@Request() req: any) {
     return this.interviewsService.getMyInterviews(req.user.id);
+  }
+
+  // Applicant response to interview (accept/reject)
+  @Post('applicant-response/:id')
+  @Roles('APPLICANT')
+  async applicantRespondToInterview(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() responseDto: ApplicantInterviewResponseDto,
+  ) {
+    return this.interviewsService.applicantRespondToInterview(
+      id,
+      req.user.id,
+      responseDto,
+    );
+  }
+
+  // Get interview requests pending HR approval
+  @Get('requests/pending')
+  @Roles('HR', 'ADMIN')
+  async getPendingInterviewRequests() {
+    return this.interviewsService.getPendingInterviewRequests();
   }
 
   // Join video interview (generate token and channel info)
@@ -174,5 +198,21 @@ export class InterviewsController {
   @HttpCode(HttpStatus.OK)
   async deleteInterview(@Param('id') id: string, @Request() req: any) {
     return this.interviewsService.deleteInterview(id, req.user.id);
+  }
+
+
+  // HR review applicant's interview rejection request
+  @Post(':id/hr-review')
+  @Roles('HR', 'ADMIN')
+  async hrReviewInterviewRequest(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() reviewDto: HRInterviewReviewDto,
+  ) {
+    return this.interviewsService.hrReviewInterviewRequest(
+      id,
+      req.user.id,
+      reviewDto,
+    );
   }
 }

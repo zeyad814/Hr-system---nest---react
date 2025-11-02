@@ -229,22 +229,71 @@ export class AdminDashboardService {
 
   async getRevenueChart(months: number = 12) {
     try {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+
+      // Generate array of last N months
+      const monthsData = [];
+      for (let i = months - 1; i >= 0; i--) {
+        let targetMonth = currentMonth - i;
+        let targetYear = currentYear;
+
+        if (targetMonth <= 0) {
+          targetMonth += 12;
+          targetYear -= 1;
+        }
+
+        monthsData.push({
+          month: targetMonth,
+          year: targetYear,
+        });
+      }
+
+      // Fetch revenue data
       const revenues = await this.prisma.revenue.groupBy({
         by: ['periodMonth', 'periodYear'],
         _sum: {
           amount: true,
         },
-        orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }],
-        take: months,
+        where: {
+          OR: monthsData.map((m) => ({
+            periodMonth: m.month,
+            periodYear: m.year,
+          })),
+        },
       });
 
-      return revenues
-        .map((revenue) => ({
-          month: revenue.periodMonth,
-          year: revenue.periodYear,
-          amount: Number(revenue._sum.amount) || 0,
-        }))
-        .reverse();
+      // Map revenue data to months
+      const revenueMap = new Map();
+      revenues.forEach((rev) => {
+        const key = `${rev.periodYear}-${rev.periodMonth}`;
+        revenueMap.set(key, Number(rev._sum.amount) || 0);
+      });
+
+      // Return data for all months (including months with 0 revenue)
+      return monthsData.map((m) => {
+        const key = `${m.year}-${m.month}`;
+        const monthNames = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
+
+        return {
+          month: `${monthNames[m.month - 1]} ${m.year}`,
+          revenue: revenueMap.get(key) || 0,
+        };
+      });
     } catch (error) {
       console.error('Error fetching revenue chart data:', error);
       throw error;

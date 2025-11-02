@@ -44,12 +44,27 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { contractsApi, Contract, ContractQuery } from "@/services/contractsApi";
 import { toast } from "sonner";
+import api from "@/lib/api";
+import { useCallback as useReactCallback } from "react";
+
+type SimpleClient = { id: string; name: string; email: string };
+
+type CreateContractForm = {
+  clientId: string;
+  title: string;
+  employeeId: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  value: string;
+  description: string;
+};
 
 const AdminContracts = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,8 +77,192 @@ const AdminContracts = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const itemsPerPage = 10;
 
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+  const [employees, setEmployees] = useState<Array<{ id: string; name: string; role: string }>>([]);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<CreateContractForm>({
+    clientId: "",
+    title: "",
+    employeeId: "",
+    type: "",
+    startDate: "",
+    endDate: "",
+    value: "",
+    description: "",
+  });
+
+  // View/Edit state
+  const [viewing, setViewing] = useState<Contract | null>(null);
+  const [editing, setEditing] = useState<Contract | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+    type: 'RECRUITMENT' | 'CONSULTING' | 'TRAINING' | 'RETAINER';
+    startDate: string;
+    endDate: string;
+    value: string;
+    description: string;
+    employeeId: string;
+  }>({ title: "", status: 'ACTIVE', type: 'RECRUITMENT', startDate: "", endDate: "", value: "0", description: "", employeeId: "" });
+
+  const toInputDate = (d?: string) => {
+    if (!d) return "";
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const openView = (contract: Contract) => {
+    setViewing(contract);
+    if (!employees.length) {
+      (async () => {
+        try {
+          const roles = ['HR', 'MANAGER', 'EMPLOYEE', 'SALES'];
+          const results = await Promise.all(roles.map(role => api.get(`/users`, { params: { role } })));
+          const merged: Array<{ id: string; name: string; role: string }> = [];
+          for (const res of results) {
+            const users = (res.data?.users || []) as Array<{ id: string; name: string; role: string }>;
+            users.forEach(u => merged.push({ id: u.id, name: u.name, role: u.role }));
+          }
+          const unique = Array.from(new Map(merged.map(u => [u.id, u])).values());
+          setEmployees(unique);
+        } catch (err) {
+          console.error('Failed to load employees', err);
+        }
+      })();
+    }
+  };
+  const closeView = () => setViewing(null);
+
+  const openEdit = (contract: Contract) => {
+    setEditing(contract);
+    setEditForm({
+      title: contract.title || "",
+      status: (contract.status as 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED') || 'ACTIVE',
+      type: (contract.type as 'RECRUITMENT' | 'CONSULTING' | 'TRAINING' | 'RETAINER') || 'RECRUITMENT',
+      startDate: toInputDate(contract.startDate),
+      endDate: toInputDate(contract.endDate),
+      value: String(contract.value ?? 0),
+      description: contract.description || "",
+      employeeId: (contract as unknown as { assignedTo?: string })?.assignedTo || "",
+    });
+    // Ensure employees and clients lists exist
+    if (!employees.length) {
+      (async () => {
+        try {
+          const roles = ['HR', 'MANAGER', 'EMPLOYEE', 'SALES'];
+          const results = await Promise.all(roles.map(role => api.get(`/users`, { params: { role } })));
+          const merged: Array<{ id: string; name: string; role: string }> = [];
+          for (const res of results) {
+            const users = (res.data?.users || []) as Array<{ id: string; name: string; role: string }>;
+            users.forEach(u => merged.push({ id: u.id, name: u.name, role: u.role }));
+          }
+          const unique = Array.from(new Map(merged.map(u => [u.id, u])).values());
+          setEmployees(unique);
+        } catch (err) {
+          console.error('Failed to load employees', err);
+        }
+      })();
+    }
+    if (!clients.length) {
+      (async () => {
+        try {
+          const res = await api.get('/client/list');
+          const data = (res.data || []) as Array<{ id: string; name: string }>;
+          setClients(data);
+        } catch (err) {
+          console.error('Failed to load clients', err);
+        }
+      })();
+    }
+  };
+  const closeEdit = () => setEditing(null);
+
+  const handleEditSave = async () => {
+    if (!editing) return;
+    try {
+      setEditSaving(true);
+      await contractsApi.updateContract(editing.id, {
+        title: editForm.title,
+        status: editForm.status,
+        type: editForm.type,
+        startDate: editForm.startDate || undefined,
+        endDate: editForm.endDate || undefined,
+        value: Number(editForm.value || 0),
+        description: editForm.description || undefined,
+        assignedTo: editForm.employeeId || undefined,
+        clientId: form.clientId || editing.clientId,
+      });
+      toast.success(language === 'ar' ? 'تم حفظ التعديلات' : 'Changes saved');
+      setEditing(null);
+      await loadContracts();
+    } catch (e) {
+      toast.error(language === 'ar' ? 'تعذر حفظ التعديلات' : 'Failed to save changes');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  // Page-level local translations to avoid missing/broken global keys
+  const T = (k: string) => {
+    const en: Record<string, string> = {
+      title: 'Contract Management',
+      subtitle: 'Track and manage all contracts and revenue',
+      addContract: 'Add Contract',
+      totalContracts: 'Total Contracts',
+      completedContracts: 'Completed Contracts',
+      activeContracts: 'Active Contracts',
+      totalValue: 'Total Value',
+      searchPlaceholder: 'Search contracts...',
+      contractsList: 'Contracts List',
+      contractNumber: 'Contract Number',
+      client: 'Client',
+      job: 'Job',
+      value: 'Value',
+      duration: 'Duration',
+      progress: 'Progress',
+      contractStatus: 'Contract Status',
+      paymentStatus: 'Payment Status',
+      loadingContracts: 'Loading contracts...',
+      noContracts: 'No contracts found',
+      from: 'From',
+      to: 'To',
+    };
+    const ar: Record<string, string> = {
+      title: 'إدارة العقود',
+      subtitle: 'إدارة العقود والاتفاقيات مع العملاء',
+      addContract: 'إضافة عقد',
+      totalContracts: 'إجمالي العقود',
+      completedContracts: 'العقود المكتملة',
+      activeContracts: 'العقود النشطة',
+      totalValue: 'القيمة الإجمالية',
+      searchPlaceholder: 'البحث في العقود...',
+      contractsList: 'قائمة العقود',
+      contractNumber: 'رقم العقد',
+      client: 'العميل',
+      job: 'الوظيفة',
+      value: 'القيمة',
+      duration: 'المدة',
+      progress: 'التقدم',
+      contractStatus: 'حالة العقد',
+      paymentStatus: 'حالة الدفع',
+      loadingContracts: 'جاري تحميل العقود...',
+      noContracts: 'لا توجد عقود',
+      from: 'من',
+      to: 'إلى',
+    };
+    return (language === 'ar' ? ar : en)[k] || k;
+  };
+
+  // Localized labels for the create modal (avoid missing keys in global translations)
+
+
   // Load contracts from server
-  const loadContracts = async () => {
+  const loadContracts = useCallback(async () => {
     try {
       setLoading(true);
       const query: ContractQuery = {
@@ -78,14 +277,18 @@ const AdminContracts = () => {
       };
       
       const response = await contractsApi.getContracts(query);
-      setContracts(response.contracts);
-      setTotal(response.total);
-      setTotalPages(response.totalPages);
-    } catch (error: any) {
+      // Backend returns { data, pagination }
+      const list = (response as unknown as { data?: Contract[] }).data ?? [];
+      const pagination = (response as unknown as { pagination?: { total?: number; totalPages?: number } }).pagination ?? {};
+      setContracts(list);
+      setTotal(pagination.total ?? list.length);
+      setTotalPages(pagination.totalPages ?? 1);
+    } catch (error: unknown) {
       console.error('Error loading contracts:', error);
-      if (error.response?.status === 401) {
+      const err = error as { response?: { status?: number } };
+      if (err.response?.status === 401) {
         toast.error(t('common.loginRequired'));
-      } else if (error.response?.status === 403) {
+      } else if (err.response?.status === 403) {
         toast.error(t('common.accessDenied'));
       } else {
         toast.error(t('admin.contracts.loadError'));
@@ -96,12 +299,12 @@ const AdminContracts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, typeFilter, paymentStatusFilter, t]);
 
   // Load contracts on component mount and when filters change
   useEffect(() => {
     loadContracts();
-  }, [currentPage, searchTerm, statusFilter, typeFilter, paymentStatusFilter]);
+  }, [loadContracts]);
 
   // Handle search with debounce
   useEffect(() => {
@@ -111,7 +314,41 @@ const AdminContracts = () => {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, loadContracts]);
+
+  // Fetch clients and employees upon opening the Add modal
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        const roles = ['HR', 'MANAGER', 'EMPLOYEE', 'SALES'];
+        const results = await Promise.all(
+          roles.map(role => api.get(`/users`, { params: { role } }))
+        );
+        const merged: Array<{ id: string; name: string; role: string }> = [];
+        for (const res of results) {
+          const users = (res.data?.users || []) as Array<{ id: string; name: string; role: string }>;
+          users.forEach(u => merged.push({ id: u.id, name: u.name, role: u.role }));
+        }
+        const unique = Array.from(new Map(merged.map(u => [u.id, u])).values());
+        setEmployees(unique);
+      } catch (err) {
+        console.error('Failed to load employees');
+      }
+    };
+    const loadClients = async () => {
+      try {
+        const res = await api.get('/client/list');
+        const data = (res.data || []) as Array<{ id: string; name: string }>;
+        setClients(data);
+      } catch (e) {
+        console.error('Failed to load clients');
+      }
+    };
+    if (showAddModal) {
+      loadClients();
+      loadEmployees();
+    }
+  }, [showAddModal]);
 
   // Handle filter changes
   const handleFilterChange = (filterType: string, value: string) => {
@@ -122,6 +359,63 @@ const AdminContracts = () => {
       setTypeFilter(value);
     } else if (filterType === 'paymentStatus') {
       setPaymentStatusFilter(value);
+    }
+  };
+
+  const handleCreate = async () => {
+    // Simple required validation
+    if (!form.clientId || !form.title || !form.employeeId || !form.type || !form.startDate || !form.endDate || !form.value) {
+      toast.error(t('errors.pleaseFillRequiredFields'));
+      return;
+    }
+    setCreating(true);
+    try {
+      const typeMap: Record<string, 'RECRUITMENT'|'CONSULTING'|'TRAINING'|'RETAINER'> = {
+        recruitment: 'RECRUITMENT',
+        consulting: 'CONSULTING',
+        training: 'TRAINING',
+        retainer: 'RETAINER',
+      };
+      const payload = {
+        clientId: form.clientId,
+        title: form.title,
+        description: form.description || undefined,
+        type: typeMap[form.type] || 'RECRUITMENT',
+        status: 'ACTIVE' as const,
+        value: Number(form.value || 0),
+        currency: 'SAR',
+        startDate: form.startDate,
+        endDate: form.endDate,
+        assignedTo: form.employeeId,
+        progress: 0,
+        paymentStatus: 'pending' as const,
+      };
+      console.log('[CreateContract] Sending payload:', payload);
+      const created = await contractsApi.createContract(payload);
+      console.log('[CreateContract] Response:', created);
+      toast.success(language === 'ar' ? 'تم إضافة العقد' : 'Contract added successfully');
+      setShowAddModal(false);
+      setForm({ clientId: '', title: '', employeeId: '', type: '', startDate: '', endDate: '', value: '', description: '' });
+      // Reset filters and refresh to first page so the new contract is visible
+      setSearchTerm('');
+      setStatusFilter('');
+      setTypeFilter('');
+      setPaymentStatusFilter('');
+      setCurrentPage(1);
+      await loadContracts();
+    } catch (e: unknown) {
+      interface HttpError { response?: { status?: number; data?: unknown }; message?: string }
+      const err = e as HttpError;
+      console.error('[CreateContract] Error:', err?.response?.data || err);
+      let serverMsg: string | undefined;
+      if (err?.response?.data && typeof err.response.data === 'object') {
+        const d = err.response.data as { message?: string };
+        serverMsg = d.message;
+      }
+      serverMsg = serverMsg || err?.message;
+      toast.error(serverMsg || (language === 'ar' ? 'تعذر إنشاء العقد' : 'Failed to create contract'));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -206,8 +500,10 @@ const AdminContracts = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return `${amount.toLocaleString()} ${currency === 'SAR' ? t('common.currency.sar') : currency}`;
+  const formatCurrency = (amount: number | null | undefined, currency?: string) => {
+    const value = Number(amount ?? 0);
+    const curr = currency || 'SAR';
+    return `${value.toLocaleString()} ${curr === 'SAR' ? t('common.currency.sar') : curr}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -220,12 +516,12 @@ const AdminContracts = () => {
         {/* Page Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">{t('admin.contracts.title')}</h1>
-            <p className="text-muted-foreground">{t('admin.contracts.subtitle')}</p>
+            <h1 className="text-3xl font-bold text-foreground">{T('title')}</h1>
+            <p className="text-muted-foreground">{T('subtitle')}</p>
           </div>
           <Button className="gap-2" onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4" />
-            {t('admin.contracts.addContract')}
+            {T('addContract')}
           </Button>
         </div>
 
@@ -234,7 +530,7 @@ const AdminContracts = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t('admin.contracts.totalContracts')}</p>
+                <p className="text-sm font-medium text-muted-foreground">{T('totalContracts')}</p>
                 <p className="text-2xl font-bold">{loading ? '...' : total}</p>
               </div>
               <FileText className="h-8 w-8 text-primary" />
@@ -243,7 +539,7 @@ const AdminContracts = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t('admin.contracts.activeContracts')}</p>
+                <p className="text-sm font-medium text-muted-foreground">{T('activeContracts')}</p>
                 <p className="text-2xl font-bold">{loading ? '...' : (contracts || []).filter(c => c.status === "ACTIVE").length}</p>
               </div>
               <Calendar className="h-8 w-8 text-secondary" />
@@ -252,7 +548,7 @@ const AdminContracts = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t('admin.contracts.completedContracts')}</p>
+                <p className="text-sm font-medium text-muted-foreground">{T('completedContracts')}</p>
                 <p className="text-2xl font-bold">{loading ? '...' : (contracts || []).filter(c => c.status === "COMPLETED").length}</p>
               </div>
               <Building2 className="h-8 w-8 text-info" />
@@ -261,7 +557,7 @@ const AdminContracts = () => {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t('admin.contracts.totalValue')}</p>
+                <p className="text-sm font-medium text-muted-foreground">{T('totalValue')}</p>
                 <p className="text-2xl font-bold">{loading ? '...' : formatCurrency((contracts || []).reduce((sum, contract) => sum + contract.value, 0), 'SAR')}</p>
               </div>
               <DollarSign className="h-8 w-8 text-accent" />
@@ -277,7 +573,7 @@ const AdminContracts = () => {
                 <div className="relative">
                   <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
-                    placeholder={t('admin.contracts.searchPlaceholder')}
+                    placeholder={T('searchPlaceholder')}
                     className="pr-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -316,21 +612,21 @@ const AdminContracts = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-{t('admin.contracts.contractsList')}
+{T('contractsList')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveTable>
               <ResponsiveTableHeader>
                 <ResponsiveTableRow>
-                  <ResponsiveTableHead>{t('admin.contracts.contractNumber')}</ResponsiveTableHead>
-                  <ResponsiveTableHead>{t('admin.contracts.client')}</ResponsiveTableHead>
-                  <ResponsiveTableHead>{t('admin.contracts.job')}</ResponsiveTableHead>
-                  <ResponsiveTableHead>{t('admin.contracts.value')}</ResponsiveTableHead>
-                  <ResponsiveTableHead>{t('admin.contracts.duration')}</ResponsiveTableHead>
-                  <ResponsiveTableHead>{t('admin.contracts.progress')}</ResponsiveTableHead>
-                  <ResponsiveTableHead>{t('admin.contracts.contractStatus')}</ResponsiveTableHead>
-                  <ResponsiveTableHead>{t('admin.contracts.paymentStatus')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('contractNumber')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('client')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('job')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('value')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('duration')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('progress')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('contractStatus')}</ResponsiveTableHead>
+                  <ResponsiveTableHead>{T('paymentStatus')}</ResponsiveTableHead>
                   <ResponsiveTableHead>{t('common.actions')}</ResponsiveTableHead>
                 </ResponsiveTableRow>
               </ResponsiveTableHeader>
@@ -340,21 +636,21 @@ const AdminContracts = () => {
                       <td colSpan={9} className="p-8 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>{t('admin.contracts.loadingContracts')}</span>
+                          <span>{T('loadingContracts')}</span>
                         </div>
                       </td>
                     </tr>
                   ) : (contracts || []).length === 0 ? (
                     <tr>
                       <td colSpan={9} className="p-8 text-center text-muted-foreground">
-{t('admin.contracts.noContracts')}
+{T('noContracts')}
                       </td>
                     </tr>
                   ) : (
                     (contracts || []).map((contract) => (
                       <ResponsiveTableRow 
                         key={contract.id}
-                        headers={[t('admin.contracts.contractNumber'), t('admin.contracts.client'), t('admin.contracts.job'), t('admin.contracts.value'), t('admin.contracts.duration'), t('admin.contracts.progress'), t('admin.contracts.contractStatus'), t('admin.contracts.paymentStatus'), t('common.actions')]}
+                        headers={[T('contractNumber'), T('client'), T('job'), T('value'), T('duration'), T('progress'), T('contractStatus'), T('paymentStatus'), t('common.actions')]}
                       >
                         <ResponsiveTableCell>
                           <div className="flex items-center gap-2">
@@ -381,8 +677,8 @@ const AdminContracts = () => {
                         </ResponsiveTableCell>
                         <ResponsiveTableCell>
                           <div className="text-xs space-y-1">
-                            <div>{t('admin.contracts.from')}: {formatDate(contract.startDate)}</div>
-                            <div>{t('admin.contracts.to')}: {formatDate(contract.endDate)}</div>
+                            <div>{T('from')}: {formatDate(contract.startDate)}</div>
+                            <div>{T('to')}: {formatDate(contract.endDate)}</div>
                           </div>
                         </ResponsiveTableCell>
                         <ResponsiveTableCell>
@@ -408,13 +704,10 @@ const AdminContracts = () => {
                         </ResponsiveTableCell>
                         <ResponsiveTableCell>
                           <div className="flex items-center gap-1">
-                            <Button size="sm" variant="outline" className="h-7 w-7 p-0">
+                            <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => openView(contract)}>
                               <Eye className="h-3 w-3" />
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                              <Download className="h-3 w-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-7 w-7 p-0">
+                            <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => openEdit(contract)}>
                               <Edit className="h-3 w-3" />
                             </Button>
                             <Button 
@@ -469,71 +762,106 @@ const AdminContracts = () => {
         </Card>
       </div>
 
-      {/* Add Contract Modal */}
+      {/* Add Contract Modal  */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{t('admin.contracts.addContract')}</DialogTitle>
+            <DialogTitle>{t('admin.contracts.modalTitle')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="employee" className="text-right">
-                {t('admin.contracts.employee')}
+              <Label htmlFor="client" className="text-right">
+                {t('admin.contracts.client')} <span className="text-red-500">*</span>
               </Label>
-              <Select>
+              <Select value={form.clientId} onValueChange={(v) => setForm(s => ({ ...s, clientId: v }))}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder={t('admin.contracts.selectEmployee')} />
+                  <SelectValue placeholder={t('admin.contracts.selectClient')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employee1">Employee 1</SelectItem>
-                  <SelectItem value="employee2">Employee 2</SelectItem>
+                  {clients.map(client => (
+                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="type" className="text-right">
-                {t('admin.contracts.type')}
+              <Label htmlFor="employee" className="text-right">
+                {language === 'ar' ? 'الموظف' : 'Employee'} <span className="text-red-500">*</span>
               </Label>
-              <Select>
+              <Select value={form.employeeId} onValueChange={(v) => setForm(s => ({ ...s, employeeId: v }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder={language === 'ar' ? 'اختر الموظف' : 'Select employee'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.name} ({emp.role})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                {language === 'ar' ? 'عنوان العقد' : 'Contract Title'} <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="title"
+                className="col-span-3"
+                value={form.title}
+                onChange={(e) => setForm(s => ({ ...s, title: e.target.value }))}
+                placeholder={language === 'ar' ? 'اكتب عنوان العقد' : 'Enter contract title'}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="type" className="text-right">
+                {t('admin.contracts.type')} <span className="text-red-500">*</span>
+              </Label>
+              <Select value={form.type} onValueChange={(v) => setForm(s => ({ ...s, type: v }))}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder={t('admin.contracts.selectType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="permanent">{t('admin.contracts.permanent')}</SelectItem>
-                  <SelectItem value="temporary">{t('admin.contracts.temporary')}</SelectItem>
-                  <SelectItem value="contract">{t('admin.contracts.contract')}</SelectItem>
+                  <SelectItem value="recruitment">{language === 'ar' ? 'توظيف' : 'Recruitment'}</SelectItem>
+                  <SelectItem value="consulting">{language === 'ar' ? 'استشارات' : 'Consulting'}</SelectItem>
+                  <SelectItem value="training">{language === 'ar' ? 'تدريب' : 'Training'}</SelectItem>
+                  <SelectItem value="retainer">{language === 'ar' ? 'اتفاقية مستمرة' : 'Retainer'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="startDate" className="text-right">
-                {t('admin.contracts.startDate')}
+                {t('admin.contracts.startDate')} <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="startDate"
                 type="date"
                 className="col-span-3"
+                value={form.startDate}
+                onChange={(e) => setForm(s => ({ ...s, startDate: e.target.value }))}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="endDate" className="text-right">
-                {t('admin.contracts.endDate')}
+                {t('admin.contracts.endDate')} <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="endDate"
                 type="date"
                 className="col-span-3"
+                value={form.endDate}
+                onChange={(e) => setForm(s => ({ ...s, endDate: e.target.value }))}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="salary" className="text-right">
-                {t('admin.contracts.salary')}
+              <Label htmlFor="value" className="text-right">
+                {t('admin.contracts.value')} <span className="text-red-500">*</span>
               </Label>
               <Input
-                id="salary"
+                id="value"
                 type="number"
                 placeholder="0.00"
                 className="col-span-3"
+                value={form.value}
+                onChange={(e) => setForm(s => ({ ...s, value: e.target.value }))}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -544,23 +872,170 @@ const AdminContracts = () => {
                 id="description"
                 placeholder={t('admin.contracts.descriptionPlaceholder')}
                 className="col-span-3"
+                value={form.description}
+                onChange={(e) => setForm(s => ({ ...s, description: e.target.value }))}
               />
             </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowAddModal(false)}>
-              {t('common.cancel')}
+              {t('admin.contracts.cancel')}
             </Button>
-            <Button onClick={() => {
-              // Here you would handle the form submission
-              toast.success(t('admin.contracts.contractAdded'));
-              setShowAddModal(false);
-            }}>
-              {t('admin.contracts.addContract')}
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              {t('admin.contracts.create')}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* View Contract Modal */}
+      {viewing && (
+        <Dialog open={!!viewing} onOpenChange={closeView}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>{language === 'ar' ? 'عرض العقد' : 'View Contract'}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3 py-2">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'العميل' : 'Client'}</Label>
+                <div className="col-span-3">{viewing.client?.name || '-'}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'الموظف' : 'Employee'}</Label>
+                <div className="col-span-3">{(employees.find(e => e.id === (viewing as unknown as { assignedTo?: string })?.assignedTo)?.name) || (viewing as unknown as { assignedTo?: string })?.assignedTo || '-'}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'عنوان' : 'Title'}</Label>
+                <div className="col-span-3">{viewing.title}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'النوع' : 'Type'}</Label>
+                <div className="col-span-3">{viewing.type}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'الحالة' : 'Status'}</Label>
+                <div className="col-span-3">{viewing.status}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'القيمة' : 'Value'}</Label>
+                <div className="col-span-3">{formatCurrency(viewing.value, viewing.currency)}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'المدة' : 'Duration'}</Label>
+                <div className="col-span-3">{viewing.startDate ? new Date(viewing.startDate).toLocaleDateString() : '-'} — {viewing.endDate ? new Date(viewing.endDate).toLocaleDateString() : '-'}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{language === 'ar' ? 'الوصف' : 'Description'}</Label>
+                <div className="col-span-3 whitespace-pre-wrap">{viewing.description || '-'}</div>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={closeView}>{language === 'ar' ? 'إغلاق' : 'Close'}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Contract Modal */}
+      {editing && (
+        <Dialog open={!!editing} onOpenChange={closeEdit}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>{language === 'ar' ? 'تعديل العقد' : 'Edit Contract'}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              {/* Client (editable) */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-client" className="text-right">{language === 'ar' ? 'العميل' : 'Client'} <span className="text-red-500">*</span></Label>
+                <Select value={form.clientId || editing.clientId} onValueChange={(v) => setForm(s => ({ ...s, clientId: v }))}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder={language === 'ar' ? 'اختر العميل' : 'Select client'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Employee */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-employee" className="text-right">{language === 'ar' ? 'الموظف' : 'Employee'} <span className="text-red-500">*</span></Label>
+                <Select value={editForm.employeeId} onValueChange={(v) => setEditForm(s => ({ ...s, employeeId: v }))}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder={language === 'ar' ? 'اختر الموظف' : 'Select employee'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map(emp => (
+                      <SelectItem key={emp.id} value={emp.id}>{emp.name} ({emp.role})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Title */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-title" className="text-right">{language === 'ar' ? 'عنوان' : 'Title'} <span className="text-red-500">*</span></Label>
+                <Input id="edit-title" className="col-span-3" value={editForm.title} onChange={(e) => setEditForm(s => ({ ...s, title: e.target.value }))} />
+              </div>
+              {/* Type */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-type" className="text-right">{language === 'ar' ? 'النوع' : 'Type'} <span className="text-red-500">*</span></Label>
+                <Select value={editForm.type} onValueChange={(v) => setEditForm(s => ({ ...s, type: v as 'RECRUITMENT' | 'CONSULTING' | 'TRAINING' | 'RETAINER' }))}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RECRUITMENT">RECRUITMENT</SelectItem>
+                    <SelectItem value="CONSULTING">CONSULTING</SelectItem>
+                    <SelectItem value="TRAINING">TRAINING</SelectItem>
+                    <SelectItem value="RETAINER">RETAINER</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Dates */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-start" className="text-right">{language === 'ar' ? 'تاريخ البداية' : 'Start Date'} <span className="text-red-500">*</span></Label>
+                <Input id="edit-start" type="date" className="col-span-3" value={editForm.startDate} onChange={(e) => setEditForm(s => ({ ...s, startDate: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-end" className="text-right">{language === 'ar' ? 'تاريخ النهاية' : 'End Date'} <span className="text-red-500">*</span></Label>
+                <Input id="edit-end" type="date" className="col-span-3" value={editForm.endDate} onChange={(e) => setEditForm(s => ({ ...s, endDate: e.target.value }))} />
+              </div>
+              {/* Value */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-value" className="text-right">{language === 'ar' ? 'القيمة' : 'Value'} <span className="text-red-500">*</span></Label>
+                <Input id="edit-value" type="number" className="col-span-3" value={editForm.value} onChange={(e) => setEditForm(s => ({ ...s, value: e.target.value }))} />
+              </div>
+              {/* Description */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-description" className="text-right">{language === 'ar' ? 'الوصف' : 'Description'}</Label>
+                <Textarea id="edit-description" className="col-span-3" value={editForm.description} onChange={(e) => setEditForm(s => ({ ...s, description: e.target.value }))} />
+              </div>
+              {/* Status */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-status" className="text-right">{language === 'ar' ? 'الحالة' : 'Status'} <span className="text-red-500">*</span></Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm(s => ({ ...s, status: v as 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED' }))}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DRAFT">DRAFT</SelectItem>
+                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                    <SelectItem value="COMPLETED">COMPLETED</SelectItem>
+                    <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+                    <SelectItem value="EXPIRED">EXPIRED</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeEdit}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+              <Button onClick={handleEditSave} disabled={editSaving}>{editSaving && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}{language === 'ar' ? 'حفظ' : 'Save'}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </MainLayout>
   );
 };

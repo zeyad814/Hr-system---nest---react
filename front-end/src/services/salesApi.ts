@@ -477,8 +477,9 @@ export const salesApiService = {
   },
 
   // Dashboard and Statistics
-  async getDashboardStats(): Promise<DashboardStats> {
-    const response = await salesApi.get('/sales/dashboard/stats');
+  async getDashboardStats(currency?: string): Promise<DashboardStats> {
+    const params = currency ? `?currency=${currency}` : '';
+    const response = await salesApi.get(`/sales/dashboard/stats${params}`);
     return response.data;
   },
 

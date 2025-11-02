@@ -39,8 +39,8 @@ export interface Contract {
   clientId: string;
   title: string;
   description?: string;
-  type: 'RECRUITMENT' | 'CONSULTING' | 'PROJECT_BASED' | 'RETAINER';
-  status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+  type: 'RECRUITMENT' | 'CONSULTING' | 'TRAINING' | 'RETAINER';
+  status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED' | 'PENDING';
   value: number;
   currency: string;
   startDate: string;
@@ -58,7 +58,49 @@ export interface Contract {
   client?: {
     id: string;
     name: string;
-    email: string;
+    email?: string;
+    phone?: string;
+    company?: string;
+    industry?: string;
+    address?: string;
+  };
+  application?: {
+    id: string;
+    status: string;
+    job?: {
+      id: string;
+      title: string;
+      description?: string;
+      location?: string;
+      salaryMin?: number;
+      salaryMax?: number;
+      salaryCurrency?: string;
+      client?: {
+        id: string;
+        name: string;
+        company?: string;
+        email?: string;
+        phone?: string;
+      };
+    };
+    applicant?: {
+      id: string;
+      user?: {
+        id: string;
+        name: string;
+        email?: string;
+        phone?: string;
+      };
+    };
+  };
+  applicant?: {
+    id: string;
+    user?: {
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+    };
   };
 }
 
@@ -70,6 +112,7 @@ export interface ContractQuery {
   type?: string;
   paymentStatus?: string;
   clientId?: string;
+  applicantId?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -87,7 +130,7 @@ export interface CreateContractData {
   clientId: string;
   title: string;
   description?: string;
-  type: 'RECRUITMENT' | 'CONSULTING' | 'PROJECT_BASED' | 'RETAINER';
+  type: 'RECRUITMENT' | 'CONSULTING' | 'TRAINING' | 'RETAINER';
   status?: 'DRAFT' | 'ACTIVE';
   value: number;
   currency: string;
@@ -104,7 +147,7 @@ export interface CreateContractData {
 export interface UpdateContractData {
   title?: string;
   description?: string;
-  type?: 'RECRUITMENT' | 'CONSULTING' | 'PROJECT_BASED' | 'RETAINER';
+  type?: 'RECRUITMENT' | 'CONSULTING' | 'TRAINING' | 'RETAINER';
   status?: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
   value?: number;
   currency?: string;
@@ -116,11 +159,12 @@ export interface UpdateContractData {
   assignedTo?: string;
   progress?: number;
   paymentStatus?: 'pending' | 'partial' | 'paid' | 'overdue';
+  clientId?: string;
 }
 
 export const contractsApi = {
   // Get all contracts with optional filters
-  getContracts: async (query?: ContractQuery): Promise<{ contracts: Contract[]; total: number; page: number; totalPages: number }> => {
+  getContracts: async (query?: ContractQuery): Promise<{ contracts: Contract[]; total: number; page: number; totalPages: number; data?: Contract[] }> => {
     const params = new URLSearchParams();
     if (query?.page) params.append('page', query.page.toString());
     if (query?.limit) params.append('limit', query.limit.toString());
@@ -129,11 +173,20 @@ export const contractsApi = {
     if (query?.type) params.append('type', query.type);
     if (query?.paymentStatus) params.append('paymentStatus', query.paymentStatus);
     if (query?.clientId) params.append('clientId', query.clientId);
+    if (query?.applicantId) params.append('applicantId', query.applicantId);
     if (query?.sortBy) params.append('sortBy', query.sortBy);
     if (query?.sortOrder) params.append('sortOrder', query.sortOrder);
     
     const response = await contractsApiInstance.get(`/contracts?${params.toString()}`);
-    return response.data;
+    const apiData = response.data;
+    // تحويل البنية من { data, pagination } إلى { contracts, total, page, totalPages }
+    return {
+      contracts: apiData.data || apiData.contracts || [],
+      total: apiData.pagination?.total || apiData.total || 0,
+      page: apiData.pagination?.page || apiData.page || 1,
+      totalPages: apiData.pagination?.totalPages || apiData.totalPages || 1,
+      data: apiData.data || apiData.contracts || [],
+    };
   },
 
   // Get single contract by ID
@@ -145,6 +198,12 @@ export const contractsApi = {
   // Create new contract
   createContract: async (data: CreateContractData): Promise<Contract> => {
     const response = await contractsApiInstance.post('/contracts', data);
+    return response.data;
+  },
+
+  // Applicant respond to contract (accept/reject)
+  applicantRespond: async (id: string, action: 'ACCEPT' | 'REJECT', notes?: string): Promise<Contract> => {
+    const response = await contractsApiInstance.patch(`/contracts/${id}/applicant-response`, { action, notes });
     return response.data;
   },
 
@@ -172,8 +231,9 @@ export const contractsApi = {
   },
 
   // Get contract statistics
-  getContractStats: async (): Promise<ContractStats> => {
-    const response = await contractsApiInstance.get('/contracts/stats');
+  getContractStats: async (currency?: string): Promise<ContractStats> => {
+    const params = currency ? `?currency=${currency}` : '';
+    const response = await contractsApiInstance.get(`/contracts/stats${params}`);
     return response.data;
   },
 

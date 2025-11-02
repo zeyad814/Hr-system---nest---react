@@ -143,3 +143,29 @@ export class InterviewFiltersDto {
   @IsDateString()
   dateTo?: string;
 }
+
+export class ApplicantInterviewResponseDto {
+  @IsEnum(['ACCEPTED', 'REJECTED'])
+  response: 'ACCEPTED' | 'REJECTED';
+
+  @IsOptional()
+  @IsDateString()
+  suggestedDate?: string; // عند الرفض، يقترح ميعاد جديد
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class HRInterviewReviewDto {
+  @IsEnum(['APPROVED', 'REJECTED'])
+  response: 'APPROVED' | 'REJECTED';
+
+  @IsOptional()
+  @IsDateString()
+  suggestedDate?: string; // عند الرفض، يقترح HR ميعاد جديد
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}

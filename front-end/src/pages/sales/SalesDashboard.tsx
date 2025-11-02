@@ -2,13 +2,22 @@ import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Users, DollarSign, Target, FileText, TrendingUp, Building2 } from "lucide-react";
 import { salesApiService, DashboardStats, SalesClient, SalesContract } from "@/services/salesApi";
 import { toast } from 'sonner';
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSalesCurrency } from "@/contexts/SalesCurrencyContext";
 
 const SalesDashboard = () => {
   const { t, language } = useLanguage();
+  const { currency, setCurrency, getCurrencyIcon, getCurrencyName } = useSalesCurrency();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [recentClients, setRecentClients] = useState<SalesClient[]>([]);
   const [recentContracts, setRecentContracts] = useState<SalesContract[]>([]);
@@ -17,15 +26,15 @@ const SalesDashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [currency]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Load dashboard statistics
-      const stats = await salesApiService.getDashboardStats();
+      // Load dashboard statistics with selected currency
+      const stats = await salesApiService.getDashboardStats(currency);
       setDashboardData(stats);
       
       // Load recent clients (first 3)
@@ -61,13 +70,14 @@ const SalesDashboard = () => {
       },
       {
         title: language === 'ar' ? 'الإيرادات الشهرية' : 'Monthly Revenue',
-        value: `${dashboardData.monthlyRevenue.toLocaleString()} ${language === 'ar' ? 'ريال' : 'SAR'}`,
+        value: `${dashboardData.monthlyRevenue.toLocaleString()} ${currency}`,
         change: language === 'ar'
-          ? `إجمالي الإيرادات: ${dashboardData.totalRevenue.toLocaleString()}`
-          : `Total Revenue: ${dashboardData.totalRevenue.toLocaleString()}`,
+          ? `إجمالي الإيرادات: ${dashboardData.totalRevenue.toLocaleString()} ${currency}`
+          : `Total Revenue: ${dashboardData.totalRevenue.toLocaleString()} ${currency}`,
         changeType: "positive" as const,
         icon: DollarSign,
-        color: "secondary"
+        color: "secondary",
+        currencyIcon: getCurrencyIcon(currency)
       },
       {
         title: language === 'ar' ? 'المهام المفتوحة' : 'Open Jobs',
@@ -149,15 +159,74 @@ const SalesDashboard = () => {
       <div className="space-y-4 sm:space-y-6 p-2 sm:p-4" dir="rtl">
         {/* Page Header */}
         <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-2">
-            {language === 'ar' ? 'لوحة المبيعات' : 'Sales Dashboard'}
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {language === 'ar' 
-              ? 'نظرة عامة على أداء المبيعات والعملاء والعقود'
-              : 'Overview of sales performance, clients, and contracts'
-            }
-          </p>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-2">
+                {language === 'ar' ? 'لوحة المبيعات' : 'Sales Dashboard'}
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                {language === 'ar' 
+                  ? 'نظرة عامة على أداء المبيعات والعملاء والعقود'
+                  : 'Overview of sales performance, clients, and contracts'
+                }
+              </p>
+            </div>
+            <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/30">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 flex-1">
+                    <DollarSign className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-bold text-foreground">
+                      {language === 'ar' ? 'اختر العملة:' : 'Select Currency:'}
+                    </span>
+                  </div>
+                  <Select value={currency} onValueChange={(value) => setCurrency(value as any)}>
+                    <SelectTrigger className="w-[220px] h-10 bg-background font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SAR">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">ر.س</span>
+                          <span>SAR</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="AED">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">د.إ</span>
+                          <span>AED</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="USD">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">$</span>
+                          <span>USD</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="EUR">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">€</span>
+                          <span>EUR</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="INR">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">₹</span>
+                          <span>INR</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="PKR">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">₨</span>
+                          <span>PKR</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Statistics Cards */}
@@ -193,7 +262,7 @@ const SalesDashboard = () => {
                           {getClientStatusText(client.status)}
                         </span>
                         <p className="text-xs text-muted-foreground mt-0 sm:mt-1">
-                          {client.totalSpent?.toLocaleString() || '0'} {language === 'ar' ? 'ريال' : 'SAR'}
+                          {client.totalSpent?.toLocaleString() || '0'} {currency}
                         </p>
                       </div>
                     </div>
@@ -234,7 +303,7 @@ const SalesDashboard = () => {
                           {getContractStatusText(contract.status)}
                         </span>
                         <p className="text-xs text-muted-foreground mt-0 sm:mt-1">
-                          {contract.value?.amount?.toLocaleString() || '0'} {language === 'ar' ? 'ريال' : 'SAR'}
+                          {contract.value?.amount?.toLocaleString() || '0'} {currency}
                         </p>
                       </div>
                     </div>

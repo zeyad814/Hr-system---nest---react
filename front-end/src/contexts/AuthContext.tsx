@@ -45,31 +45,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (validateToken()) {
             setUser(parsedUser);
             
-            // Only auto-navigate if not on login/register pages
+            // Preserve current path on reload; only redirect if landing on root or auth pages
             const currentPath = window.location.pathname;
-            if (currentPath === '/login' || currentPath === '/register') {
-              // Don't auto-navigate from login/register pages
-              // Let the user stay on these pages if they want to
-            } else {
-              // Auto-navigate to appropriate dashboard based on role
+            const isAuthPage = currentPath === '/login' || currentPath === '/register';
+            const isRoot = currentPath === '/';
+            if (isAuthPage || isRoot) {
+              // Auto-navigate to appropriate dashboard based on role only from root/auth
               switch (parsedUser.role) {
                 case 'ADMIN':
-                  if (currentPath !== '/admin') navigate('/admin');
+                  navigate('/admin');
                   break;
                 case 'HR':
-                  if (currentPath !== '/hr') navigate('/hr');
+                  navigate('/hr');
                   break;
                 case 'CLIENT':
-                  if (currentPath !== '/client') navigate('/client');
+                  navigate('/client');
                   break;
                 case 'APPLICANT':
-                  if (currentPath !== '/applicant') navigate('/applicant');
+                  navigate('/applicant');
                   break;
                 case 'SALES':
-                  if (currentPath !== '/sales') navigate('/sales');
+                  navigate('/sales');
                   break;
                 default:
-                  if (currentPath !== '/dashboard') navigate('/dashboard');
+                  navigate('/dashboard');
               }
             }
           } else {
@@ -93,12 +92,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
     
     initializeAuth();
-  }, []);
+  }, [navigate]);
 
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const apiBase = (import.meta as any).env.VITE_API_BASE || 'http://localhost:3000/api';
+      const metaEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+      const apiBase = metaEnv.VITE_API_BASE || 'http://localhost:3000/api';
+      
+      console.log('=== LOGIN ATTEMPT ===');
+      console.log('API Base:', apiBase);
+      console.log('Login URL:', `${apiBase}/auth/login`);
+      console.log('Email:', email);
+      console.log('Password length:', password.length);
+      
       const response = await fetch(`${apiBase}/auth/login`, {
         method: 'POST',
         headers: {
@@ -107,8 +114,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (!response.ok) {
-        throw new Error('فشل في تسجيل الدخول');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Login error response:', errorData);
+        throw new Error(`فشل في تسجيل الدخول: ${response.status} - ${errorData.message || 'خطأ غير معروف'}`);
       }
 
       const data = await response.json();
@@ -185,7 +197,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
       
-      const apiBase = (import.meta as any).env.VITE_API_BASE || 'http://localhost:3000/api';
+      const metaEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+      const apiBase = metaEnv.VITE_API_BASE || 'http://localhost:3000/api';
       const response = await fetch(`${apiBase}/auth/refresh`, {
         method: 'POST',
         headers: {

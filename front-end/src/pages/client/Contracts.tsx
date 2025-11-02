@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { clientApiService } from "@/services/clientApi";
+import { useSalesCurrency } from "@/contexts/SalesCurrencyContext";
 import type { ClientContract } from "@/services/clientApi";
 import { 
   FileText, 
@@ -27,6 +28,7 @@ import {
 
 const ClientContracts = () => {
   const { t, isRTL } = useLanguage();
+  const { currency, getCurrencyIcon } = useSalesCurrency();
   const [contracts, setContracts] = useState<ClientContract[]>([]);
   const [contractStats, setContractStats] = useState({
     active: 0,
@@ -199,9 +201,14 @@ const ClientContracts = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('client.contracts.stats.totalValue')}</p>
-                  <p className="text-2xl font-bold">{contractStats.totalValue.toLocaleString()} ريال</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold">{contractStats.totalValue.toLocaleString()}</p>
+                    <span className="text-xl font-bold">{currency}</span>
+                  </div>
                 </div>
-                <DollarSign className="h-8 w-8 text-primary" />
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <span className="text-red-500 text-2xl font-bold">{getCurrencyIcon(currency)}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -297,8 +304,8 @@ const ClientContracts = () => {
                           <span className="truncate">{t('client.contracts.to')} {contract.endDate}</span>
                         </div>
                         <div className="flex items-center gap-1 lg:gap-2">
-                          <DollarSign className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          <span className="font-medium truncate">{contract.salary} ريال/شهر</span>
+                          <span className="text-red-500 font-bold">{getCurrencyIcon((contract as any).currency || currency)}</span>
+                          <span className="font-medium truncate">{contract.salary} {(contract as any).currency || currency}/شهر</span>
                         </div>
                         <p className="text-muted-foreground truncate">{t('client.contracts.probationPeriod')}: {contract.probationPeriod}</p>
                       </div>
@@ -348,7 +355,7 @@ const ClientContracts = () => {
                       <div className="flex-1">
                         <p className="text-xs lg:text-sm font-medium mb-2">{t('client.contracts.benefits')}:</p>
                         <div className="flex flex-wrap gap-1">
-                          {contract.benefits.map((benefit, index) => (
+                          {(contract.benefits || []).map((benefit, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {benefit}
                             </Badge>

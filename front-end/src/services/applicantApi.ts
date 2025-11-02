@@ -89,6 +89,8 @@ export interface Job {
   id: string;
   title: string;
   description?: string;
+  requirements?: string; // newline or comma separated
+  requiredSkills?: string; // comma separated
   clientId: string;
   client: {
     id: string;
@@ -337,8 +339,17 @@ export const applicantApiService = {
 
   // Interviews
   async getMyInterviews(): Promise<Interview[]> {
-    const response = await applicantApi.get('/interviews/applicant');
+    const response = await applicantApi.get('/interviews/my-interviews');
     return response.data;
+  },
+
+  async respondToInterview(interviewId: string, response: 'ACCEPTED' | 'REJECTED', suggestedDate?: string, notes?: string): Promise<Interview> {
+    const response_1 = await applicantApi.post(`/interviews/applicant-response/${interviewId}`, {
+      response,
+      suggestedDate,
+      notes,
+    });
+    return response_1.data;
   },
 
   // Available Jobs (from applicant controller)
@@ -349,6 +360,12 @@ export const applicantApiService = {
 
   async getJobById(jobId: string): Promise<Job> {
     const response = await applicantApi.get(`/jobs/${jobId}`);
+    return response.data;
+  },
+
+  // Alternate apply endpoint via Jobs controller
+  async applyToJobByJobId(jobId: string): Promise<JobApplication> {
+    const response = await applicantApi.post(`/jobs/${jobId}/apply`);
     return response.data;
   },
 

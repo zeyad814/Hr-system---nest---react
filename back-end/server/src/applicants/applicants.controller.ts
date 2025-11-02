@@ -95,9 +95,9 @@ export class ApplicantsController {
     );
   }
 
-  // HR and Admin endpoints
+  // HR, Admin, and Sales endpoints
   @Get('all')
-  @Roles('HR', 'ADMIN')
+  @Roles('HR', 'ADMIN', 'SALES')
   async getAllApplicants(
     @Query('status') status?: string,
     @Query('search') search?: string,

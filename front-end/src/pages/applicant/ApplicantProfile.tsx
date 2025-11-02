@@ -780,6 +780,17 @@ const ApplicantProfile = () => {
     return "bg-red-500"
   }
 
+  const formatDateAr = (value?: string) => {
+    if (!value) return ''
+    try {
+      const d = new Date(value)
+      if (Number.isNaN(d.getTime())) return value
+      return d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' })
+    } catch {
+      return value
+    }
+  }
+
   const ExperienceCard = ({ exp, onEdit, onDelete }: { exp: any, onEdit: () => void, onDelete: () => void }) => (
     <Card className="mb-4">
       <CardContent className="pt-6">
@@ -788,7 +799,7 @@ const ApplicantProfile = () => {
             <h3 className="text-lg font-semibold">{exp.title}</h3>
             <p className="text-muted-foreground">{exp.company} • {exp.location}</p>
             <p className="text-sm text-muted-foreground">
-              {exp.startDate} - {exp.current ? t('applicant.profile.current') : exp.endDate}
+              {formatDateAr(exp.startDate)} - {exp.current ? t('applicant.profile.present') : formatDateAr(exp.endDate)}
             </p>
           </div>
           <div className="flex gap-2">
@@ -998,7 +1009,7 @@ const ApplicantProfile = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 h-auto">
             <TabsTrigger value="personal" className="text-xs sm:text-sm p-2 sm:p-3">
               <span className="hidden sm:inline">{t('applicant.profile.personalInfo')}</span>
               <span className="sm:hidden">{t('applicant.profile.personal')}</span>
@@ -1022,6 +1033,10 @@ const ApplicantProfile = () => {
             <TabsTrigger value="documents" className="text-xs sm:text-sm p-2 sm:p-3">
               <span className="hidden sm:inline">{t('applicant.profile.documents')}</span>
               <span className="sm:hidden">{t('applicant.profile.documents')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="cv" className="text-xs sm:text-sm p-2 sm:p-3">
+              <span className="hidden sm:inline">منشئ السيرة الذاتية</span>
+              <span className="sm:hidden">السيرة</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1100,11 +1115,11 @@ const ApplicantProfile = () => {
                       value={formData.location}
                       onChange={(e) => setFormData({...formData, location: e.target.value})}
                       disabled={!isEditing}
-                      placeholder="أدخل الموقع"
+                      placeholder={t('applicant.profile.enterLocation')}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="address">العنوان</Label>
+                    <Label htmlFor="address">{t('applicant.profile.address')}</Label>
                     <Input
                       id="address"
                       value={formData.address}
@@ -1178,6 +1193,136 @@ const ApplicantProfile = () => {
                     </Button>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* CV Builder */}
+          <TabsContent value="cv">
+            <Card>
+              <CardHeader>
+                <CardTitle>منشئ السيرة الذاتية</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="cv-summary">الملخص المهني</Label>
+                    <Textarea id="cv-summary" rows={3}
+                      placeholder="اكتب ملخصاً قصيراً عن خبراتك ومهاراتك"
+                      value={(profile as any).cvSummary || ''}
+                      onChange={(e) => setProfile((p) => ({ ...p, cvSummary: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cv-objective">الهدف الوظيفي</Label>
+                    <Textarea id="cv-objective" rows={3}
+                      placeholder="اكتب الهدف الوظيفي"
+                      value={(profile as any).cvObjective || ''}
+                      onChange={(e) => setProfile((p) => ({ ...p, cvObjective: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cv-theme">النمط</Label>
+                    <Select value={(profile as any).cvTheme || 'light'} onValueChange={(v) => setProfile((p) => ({ ...p, cvTheme: v }))}>
+                      <SelectTrigger id="cv-theme">
+                        <SelectValue placeholder="اختر النمط" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">فاتح</SelectItem>
+                        <SelectItem value="dark">داكن</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input id="cv-include-projects" type="checkbox"
+                      checked={(profile as any).cvIncludeProjects ?? true}
+                      onChange={(e) => setProfile((p) => ({ ...p, cvIncludeProjects: e.target.checked }))}
+                    />
+                    <Label htmlFor="cv-include-projects">إظهار المشاريع</Label>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={() => {
+                    const theme = (profile as any).cvTheme || 'light'
+                    const includeProjects = (profile as any).cvIncludeProjects ?? true
+                    const summary = (profile as any).cvSummary || ''
+                    const objective = (profile as any).cvObjective || ''
+                    const doc = window.open('', '_blank')
+                    if (!doc) return
+                    const styles = `
+                      <style>
+                        body { direction: rtl; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background: ${theme==='dark'?'#0b1020':'#fff'}; color: ${theme==='dark'?'#eef2ff':'#111827'}; }
+                        .section { margin-bottom: 16px; }
+                        .title { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
+                        .muted { color: ${theme==='dark'?'#a5b4fc':'#6b7280'}; }
+                        .chip { display:inline-block; padding:2px 8px; border-radius:12px; background:${theme==='dark'?'#1f2937':'#f3f4f6'}; margin:2px; }
+                        .divider { height:1px; background:${theme==='dark'?'#374151':'#e5e7eb'}; margin:12px 0; }
+                      </style>
+                    `
+                    const header = `
+                      <div class="section">
+                        <div class="title">${applicantData.user.name}</div>
+                        <div class="muted">${applicantData.user.email}${applicantData.phone? ' • ' + applicantData.phone: ''}${applicantData.location? ' • ' + applicantData.location: ''}</div>
+                      </div>
+                      <div class="divider"></div>
+                    `
+                    const summaryBlock = summary ? `<div class="section"><div class="title">الملخص</div><div>${summary}</div></div>` : ''
+                    const objectiveBlock = objective ? `<div class="section"><div class="title">الهدف</div><div>${objective}</div></div>` : ''
+                    const expBlock = (profile.experience && profile.experience.length) ? `
+                      <div class="section">
+                        <div class="title">الخبرات</div>
+                        ${profile.experience.map((e:any)=>`<div style="margin-bottom:8px">
+                          <div style="font-weight:600">${e.title} • ${e.company}</div>
+                          <div class="muted">${e.location || ''}</div>
+                          <div class="muted">${e.startDate || ''}${e.current? ' - حتى الآن' : (e.endDate? ' - ' + e.endDate : '')}</div>
+                          ${e.description? `<div>${e.description}</div>`:''}
+                        </div>`).join('')}
+                      </div>
+                    ` : ''
+                    const eduBlock = (profile.education && profile.education.length) ? `
+                      <div class="section">
+                        <div class="title">التعليم</div>
+                        ${profile.education.map((ed:any)=>`<div style="margin-bottom:8px">
+                          <div style="font-weight:600">${ed.degree}</div>
+                          <div class="muted">${ed.institution}${ed.location? ' • ' + ed.location : ''}</div>
+                          <div class="muted">${ed.startDate || ''}${ed.endDate? ' - ' + ed.endDate: ''}</div>
+                        </div>`).join('')}
+                      </div>
+                    ` : ''
+                    const skillsBlock = (profile.skills && profile.skills.length) ? `
+                      <div class="section">
+                        <div class="title">المهارات</div>
+                        <div>
+                          ${profile.skills.map((s:any)=>`<span class="chip">${s.name}${s.level? ' • ' + s.level + '%' : ''}</span>`).join('')}
+                        </div>
+                      </div>
+                    ` : ''
+                    const projectsBlock = (includeProjects && profile.projects && profile.projects.length) ? `
+                      <div class="section">
+                        <div class="title">المشاريع</div>
+                        ${profile.projects.map((p:any)=>`<div style="margin-bottom:8px">
+                          <div style="font-weight:600">${p.name || p.title || ''}</div>
+                          ${p.description? `<div>${p.description}</div>`:''}
+                        </div>`).join('')}
+                      </div>
+                    ` : ''
+                    doc.document.write(`<!DOCTYPE html><html><head><meta charset='utf-8'/>${styles}</head><body>
+                      ${header}
+                      ${summaryBlock}
+                      ${objectiveBlock}
+                      ${expBlock}
+                      ${eduBlock}
+                      ${skillsBlock}
+                      ${projectsBlock}
+                    </body></html>`)
+                    doc.document.close()
+                    doc.focus()
+                    doc.print()
+                  }}>
+                    معاينة وطباعة (PDF)
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1298,7 +1443,7 @@ const ApplicantProfile = () => {
                           <h3 className="text-lg font-semibold">{exp.title}</h3>
                           <p className="text-muted-foreground">{exp.company} • {exp.location}</p>
                           <p className="text-sm text-muted-foreground">
-                            {exp.startDate} - {exp.current ? t('applicant.profile.current') : exp.endDate}
+                            {formatDateAr(exp.startDate)} - {exp.current ? t('applicant.profile.present') : formatDateAr(exp.endDate)}
                           </p>
                         </div>
                         <Button 
@@ -1366,7 +1511,7 @@ const ApplicantProfile = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="startDate">تاريخ البداية</Label>
+                        <Label htmlFor="startDate">{t('applicant.profile.startDate')}</Label>
                         <Input
                           id="startDate"
                           type="date"
@@ -1375,7 +1520,7 @@ const ApplicantProfile = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="endDate">تاريخ النهاية</Label>
+                        <Label htmlFor="endDate">{t('applicant.profile.endDate')}</Label>
                         <Input
                           id="endDate"
                           type="date"
@@ -1406,7 +1551,7 @@ const ApplicantProfile = () => {
                     <div className="flex gap-2">
                       <Button onClick={handleAddEducation}>
                         <Save className="h-4 w-4 ml-2" />
-                        حفظ
+                        {t('common.save')}
                       </Button>
                       <Button variant="outline" onClick={() => setIsAddingEducation(false)}>
                         <X className="h-4 w-4 ml-2" />
