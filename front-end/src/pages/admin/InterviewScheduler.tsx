@@ -9,7 +9,7 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { Calendar, Clock, Users, Video, Mail, User, FileText, Plus, Edit, Trash2, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, Users, Video, Mail, User, FileText, Plus, Edit, Trash2, ExternalLink, Play, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '@/lib/api';
 
@@ -40,6 +40,7 @@ const InterviewScheduler: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedInterview, setSelectedInterview] = useState<InterviewSchedule | null>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -55,6 +56,7 @@ const InterviewScheduler: React.FC = () => {
 
   useEffect(() => {
     loadInterviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadInterviews = async () => {
@@ -111,28 +113,41 @@ const InterviewScheduler: React.FC = () => {
     e.preventDefault();
 
     try {
+      let response;
       if (isEditOpen) {
-        await api.put(`/interviews/schedule/${selectedInterview?.id}`, formData);
+        response = await api.put(`/interviews/schedule/${selectedInterview?.id}`, formData);
         toast({
           title: t('common.success'),
           description: t('admin.interviews.updateSuccess'),
         });
       } else {
-        await api.post('/interviews/schedule', formData);
-        toast({
-          title: t('common.success'),
-          description: t('admin.interviews.createSuccess'),
-        });
+        response = await api.post('/interviews/schedule', formData);
+        
+        // Check if Zoom fallback was used
+        if (response.data?.fallbackUsed && formData.meetingType === 'ZOOM') {
+          toast({
+            title: t('admin.interviews.zoomNotConfigured'),
+            description: response.data.fallbackReason || t('admin.interviews.zoomFallbackWarning'),
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: t('common.success'),
+            description: t('admin.interviews.createSuccess'),
+          });
+        }
       }
       loadInterviews();
       setIsAddOpen(false);
       setIsEditOpen(false);
       setSelectedInterview(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving interview:', error);
+      const apiError = error as { response?: { data?: { message?: string } } };
+      const errorMessage = apiError?.response?.data?.message || t('admin.interviews.saveError');
       toast({
         title: t('common.error'),
-        description: error.response?.data?.message || t('admin.interviews.saveError'),
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -168,6 +183,56 @@ const InterviewScheduler: React.FC = () => {
 
   const getMeetingTypeIcon = (type: string) => {
     return type === 'GOOGLE_MEET' ? '🎥' : '📹';
+  };
+
+  const handleStartInterview = (interview: InterviewSchedule) => {
+    if (interview.meetingLink) {
+      window.open(interview.meetingLink, '_blank');
+    } else {
+      toast({
+        title: t('common.error'),
+        description: t('admin.interviews.noMeetingLink'),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCopyLink = async (interview: InterviewSchedule) => {
+    if (interview.meetingLink) {
+      try {
+        await navigator.clipboard.writeText(interview.meetingLink);
+        setCopiedLinkId(interview.id);
+        toast({
+          title: t('common.success'),
+          description: t('admin.interviews.linkCopied'),
+        });
+        setTimeout(() => setCopiedLinkId(null), 2000);
+      } catch (error) {
+        toast({
+          title: t('common.error'),
+          description: t('admin.interviews.copyError'),
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const canStartInterview = (interview: InterviewSchedule) => {
+    const now = new Date();
+    const scheduledDate = new Date(interview.scheduledDate);
+    const timeDiff = scheduledDate.getTime() - now.getTime();
+    const minutesUntil = timeDiff / (1000 * 60);
+    
+    // يمكن بدء المقابلة قبل 15 دقيقة من الموعد المحدد
+    return interview.status === 'SCHEDULED' && interview.meetingLink && minutesUntil <= 15;
+  };
+
+  const canJoinMeeting = (interview: InterviewSchedule) => {
+    const now = new Date();
+    const scheduledDate = new Date(interview.scheduledDate);
+    // يمكن الانضمام قبل دقيقة واحدة من الموعد
+    const minutesUntil = (scheduledDate.getTime() - now.getTime()) / (1000 * 60);
+    return minutesUntil <= 1;
   };
 
   if (loading) {
@@ -256,28 +321,88 @@ const InterviewScheduler: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                   <div className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
                     {interview.duration} {t('admin.interviews.minutes')}
                   </div>
                   <div className="flex items-center gap-1">
                     <Video className="h-4 w-4" />
-                    {t(`admin.interviews.meetingType.${interview.meetingType.toLowerCase()}`)}
+                    <Badge variant="outline" className="text-xs">
+                      {interview.meetingType === 'GOOGLE_MEET' 
+                        ? t('admin.interviews.meetingType.google_meet') 
+                        : t('admin.interviews.meetingType.zoom')}
+                    </Badge>
                   </div>
                 </div>
+                
+                {!interview.meetingLink && interview.status === 'SCHEDULED' && (
+                  <div className="mt-2 text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+                    {t('admin.interviews.meetingLinkPending')}
+                  </div>
+                )}
 
                 {interview.meetingLink && (
-                  <div className="mt-4 pt-4 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(interview.meetingLink, '_blank')}
-                      className="flex items-center gap-2"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      {t('admin.interviews.joinMeeting')}
-                    </Button>
+                  <div className="mt-4 pt-4 border-t space-y-2">
+                    {interview.meetingType === 'ZOOM' && interview.meetingLink.includes('meet.jit.si') && (
+                      <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                        ⚠️ {t('admin.interviews.zoomFallbackWarning')}
+                      </div>
+                    )}
+                    {!canJoinMeeting(interview) && (
+                      <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                        ℹ️ {t('admin.interviews.meetingNotStarted')}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {canStartInterview(interview) && (
+                        <Button
+                          onClick={() => handleStartInterview(interview)}
+                          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                          size="sm"
+                        >
+                          <Play className="h-4 w-4" />
+                          {interview.meetingType === 'GOOGLE_MEET' 
+                            ? t('admin.interviews.startGoogleMeet') 
+                            : interview.meetingLink.includes('meet.jit.si')
+                            ? t('admin.interviews.startJitsi')
+                            : t('admin.interviews.startZoom')}
+                        </Button>
+                      )}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleStartInterview(interview)}
+                        className="flex items-center gap-2"
+                        disabled={!canJoinMeeting(interview)}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        {t('admin.interviews.joinMeeting')}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyLink(interview)}
+                        className="flex items-center gap-2"
+                        disabled={!canJoinMeeting(interview)}
+                      >
+                        {copiedLinkId === interview.id ? (
+                          <>
+                            <Check className="h-4 w-4 text-green-600" />
+                            {t('admin.interviews.copied')}
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4" />
+                            {t('admin.interviews.copyLink')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Video className="h-3 w-3" />
+                      <span className="break-all">{interview.meetingLink}</span>
+                    </div>
                   </div>
                 )}
 

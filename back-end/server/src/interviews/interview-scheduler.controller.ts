@@ -3,6 +3,7 @@ import { InterviewSchedulerService } from './interview-scheduler.service';
 import { CreateInterviewScheduleDto, UpdateInterviewScheduleDto } from './dto/interview-schedule.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GoogleMeetService } from './google-meet.service';
+import { ZoomService } from './zoom.service';
 import { Public } from '../auth/public.decorator';
 
 @Controller('interviews')
@@ -11,6 +12,7 @@ export class InterviewSchedulerController {
   constructor(
     private readonly interviewSchedulerService: InterviewSchedulerService,
     private readonly googleMeetService: GoogleMeetService,
+    private readonly zoomService: ZoomService,
   ) {}
 
   @Post('schedule')
@@ -83,6 +85,53 @@ export class InterviewSchedulerController {
         success: false,
         message: 'Google Meet integration failed',
         error: error.message,
+      };
+    }
+  }
+
+  @Get('test-zoom')
+  @Public()
+  async testZoom() {
+    try {
+      const isConfigured = this.zoomService.isConfigured();
+      
+      if (!isConfigured) {
+        return {
+          success: false,
+          message: 'Zoom API is not configured',
+          configured: false,
+          details: {
+            accountId: !!this.zoomService['configService']?.get('ZOOM_ACCOUNT_ID'),
+            clientId: !!this.zoomService['configService']?.get('ZOOM_CLIENT_ID'),
+            clientSecret: !!this.zoomService['configService']?.get('ZOOM_CLIENT_SECRET'),
+          },
+        };
+      }
+
+      const testData = {
+        title: 'Test Zoom Meeting',
+        description: 'Test meeting for Zoom integration',
+        startTime: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
+        duration: 30,
+        timezone: 'UTC',
+        attendeeEmails: ['test@example.com'],
+      };
+
+      const result = await this.zoomService.createMeeting(testData);
+      
+      return {
+        success: true,
+        message: 'Zoom API integration is working!',
+        configured: true,
+        meetingData: result,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: 'Zoom API integration failed',
+        configured: this.zoomService.isConfigured(),
+        error: error.message,
+        details: error.response?.data || error.stack,
       };
     }
   }

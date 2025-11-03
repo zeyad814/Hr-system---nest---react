@@ -198,57 +198,9 @@ export class ContractsService {
             name: true,
             email: true,
             phone: true,
-            company: true,
+            companyName: true,
             industry: true,
             address: true,
-          },
-        },
-        application: {
-          include: {
-            job: {
-              select: {
-                id: true,
-                title: true,
-                description: true,
-                location: true,
-                salaryMin: true,
-                salaryMax: true,
-                salaryCurrency: true,
-                client: {
-                  select: {
-                    id: true,
-                    name: true,
-                    company: true,
-                    email: true,
-                    phone: true,
-                  },
-                },
-              },
-            },
-            applicant: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    phone: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        applicant: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-              },
-            },
           },
         },
       },

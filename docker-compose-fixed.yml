@@ -1,0 +1,58 @@
+
+services:
+  postgres:
+    platform: linux/amd64
+    image: postgres:16-alpine
+    container_name: hrdb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hrdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c password_encryption=scram-sha-256
+
+  backend:
+    build:
+      context: ./back-end/server
+      dockerfile: Dockerfile
+    container_name: hr-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hrdb
+      - JWT_SECRET=your-jwt-secret-key
+      - NODE_ENV=development
+    depends_on:
+      - postgres
+    volumes:
+      - ./back-end/server:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./front-end
+      dockerfile: Dockerfile
+    container_name: hr-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    depends_on:
+      - backend
+    volumes:
+      - ./front-end:/app
+      - /app/node_modules
+
+volumes:
+  pgdata: {}
+
+

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoogleMeetService } from './google-meet.service';
+import { ZoomService } from './zoom.service';
 import { CreateInterviewScheduleDto, UpdateInterviewScheduleDto } from './dto/interview-schedule.dto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class InterviewSchedulerService {
   constructor(
     private prisma: PrismaService,
     private googleMeetService: GoogleMeetService,
+    private zoomService: ZoomService,
   ) {}
 
   async createInterviewSchedule(createDto: CreateInterviewScheduleDto) {
@@ -45,11 +47,31 @@ export class InterviewSchedulerService {
           this.logger.log('Created Jitsi Meet link: ' + meetingLink);
         }
       } else if (createDto.meetingType === 'ZOOM') {
-        // Generate a working Jitsi Meet link (since we don't have Zoom API)
-        const roomName = `interview-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        meetingId = roomName;
-        meetingLink = `https://meet.jit.si/${roomName}`;
-        this.logger.log('Created Jitsi Meet link for Zoom meeting type: ' + meetingLink);
+        try {
+          if (this.zoomService.isConfigured()) {
+            const meetingData = await this.zoomService.createMeeting({
+              title: createDto.title,
+              description: createDto.description,
+              startTime,
+              duration: createDto.duration,
+              timezone: 'UTC',
+              attendeeEmails: [createDto.candidateEmail, createDto.interviewerEmail],
+            });
+
+            meetingLink = meetingData.meetingLink;
+            meetingId = meetingData.meetingId;
+            this.logger.log('Created Zoom meeting: ' + meetingLink);
+          } else {
+            throw new Error('Zoom API not configured');
+          }
+        } catch (error: any) {
+          this.logger.warn('Failed to create Zoom meeting, using Jitsi instead:', error.message);
+          // Fallback to Jitsi Meet if Zoom API is not configured or fails
+          const roomName = `interview-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+          meetingId = roomName;
+          meetingLink = `https://meet.jit.si/${roomName}`;
+          this.logger.log('Created Jitsi Meet link for Zoom meeting type: ' + meetingLink);
+        }
       }
 
       // Create interview schedule in database
@@ -85,10 +107,24 @@ export class InterviewSchedulerService {
 
       this.logger.log(`Interview schedule created: ${interviewSchedule.id}`);
 
-      return {
+      // Check if we used Jitsi fallback for Zoom
+      const isJitsiFallback = createDto.meetingType === 'ZOOM' && 
+        meetingLink && 
+        meetingLink.includes('meet.jit.si');
+
+      const response: any = {
         ...interviewSchedule,
         calendarEventId,
       };
+
+      if (isJitsiFallback) {
+        response.fallbackUsed = true;
+        response.fallbackReason = !this.zoomService.isConfigured()
+          ? 'Zoom API not configured. Please add ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, and ZOOM_CLIENT_SECRET to .env file.'
+          : 'Failed to create Zoom meeting. Using Jitsi Meet instead.';
+      }
+
+      return response;
     } catch (error) {
       this.logger.error('Failed to create interview schedule:', error);
       throw new Error(`Failed to create interview schedule: ${error.message}`);
@@ -105,23 +141,40 @@ export class InterviewSchedulerService {
         throw new Error('Interview schedule not found');
       }
 
-      // Update Google Meet event if it exists and Google Meet is selected
-      if (existingSchedule.meetingId && updateDto.meetingType === 'GOOGLE_MEET') {
-        try {
-          const startTime = updateDto.scheduledDate ? new Date(updateDto.scheduledDate) : new Date(existingSchedule.scheduledDate);
-          const endTime = new Date(startTime.getTime() + (updateDto.duration || existingSchedule.duration) * 60000);
+      // Update meeting event if it exists
+      if (existingSchedule.meetingId) {
+        const startTime = updateDto.scheduledDate ? new Date(updateDto.scheduledDate) : new Date(existingSchedule.scheduledDate);
+        const meetingType = updateDto.meetingType || existingSchedule.meetingType;
 
-          await this.googleMeetService.updateMeeting(existingSchedule.meetingId, {
-            title: updateDto.title,
-            description: updateDto.description,
-            startTime,
-            endTime,
-            attendeeEmails: updateDto.candidateEmail || updateDto.interviewerEmail ? 
-              [updateDto.candidateEmail || existingSchedule.candidateEmail, 
-               updateDto.interviewerEmail || existingSchedule.interviewerEmail] : undefined,
-          });
-        } catch (error) {
-          this.logger.warn('Failed to update Google Meet event:', error.message);
+        if (meetingType === 'GOOGLE_MEET') {
+          try {
+            const endTime = new Date(startTime.getTime() + (updateDto.duration || existingSchedule.duration) * 60000);
+            await this.googleMeetService.updateMeeting(existingSchedule.meetingId, {
+              title: updateDto.title,
+              description: updateDto.description,
+              startTime,
+              endTime,
+              attendeeEmails: updateDto.candidateEmail || updateDto.interviewerEmail ? 
+                [updateDto.candidateEmail || existingSchedule.candidateEmail, 
+                 updateDto.interviewerEmail || existingSchedule.interviewerEmail] : undefined,
+            });
+          } catch (error) {
+            this.logger.warn('Failed to update Google Meet event:', error.message);
+          }
+        } else if (meetingType === 'ZOOM' && this.zoomService.isConfigured()) {
+          try {
+            await this.zoomService.updateMeeting(existingSchedule.meetingId, {
+              title: updateDto.title,
+              description: updateDto.description,
+              startTime,
+              duration: updateDto.duration || existingSchedule.duration,
+              attendeeEmails: updateDto.candidateEmail || updateDto.interviewerEmail ? 
+                [updateDto.candidateEmail || existingSchedule.candidateEmail, 
+                 updateDto.interviewerEmail || existingSchedule.interviewerEmail] : undefined,
+            });
+          } catch (error) {
+            this.logger.warn('Failed to update Zoom meeting:', error.message);
+          }
         }
       }
 
@@ -162,12 +215,16 @@ export class InterviewSchedulerService {
         throw new Error('Interview schedule not found');
       }
 
-      // Cancel Google Meet event if it exists
+      // Cancel meeting event if it exists
       if (existingSchedule.meetingId) {
         try {
-          await this.googleMeetService.cancelMeeting(existingSchedule.meetingId);
+          if (existingSchedule.meetingType === 'GOOGLE_MEET') {
+            await this.googleMeetService.cancelMeeting(existingSchedule.meetingId);
+          } else if (existingSchedule.meetingType === 'ZOOM' && this.zoomService.isConfigured()) {
+            await this.zoomService.cancelMeeting(existingSchedule.meetingId);
+          }
         } catch (error) {
-          this.logger.warn('Failed to cancel Google Meet event:', error.message);
+          this.logger.warn(`Failed to cancel ${existingSchedule.meetingType} event:`, error.message);
         }
       }
 

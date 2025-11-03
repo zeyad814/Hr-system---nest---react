@@ -21,3 +21,4 @@ export function getContractTypeLabel(type: string, language: AppLanguage): strin
 }
 
 
+

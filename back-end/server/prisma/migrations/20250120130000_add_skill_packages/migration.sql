@@ -26,3 +26,4 @@ CREATE TABLE "skill_packages" (
 
 
 
+
