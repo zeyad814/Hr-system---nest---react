@@ -198,6 +198,7 @@ export class ApplicantsService {
              orderBy: { issueDate: 'desc' },
            },
           applications: {
+          orderBy: { createdAt: 'desc' }, // IMPORTANT: Order by createdAt desc to get latest first
           include: {
             job: {
               include: {
@@ -223,6 +224,21 @@ export class ApplicantsService {
 
     if (!applicant) {
       throw new NotFoundException('Applicant profile not found');
+    }
+    
+    // Log the applications for debugging
+    if (applicant.applications && applicant.applications.length > 0) {
+      console.log('📤 Returning applicant profile with applications:', {
+        userId: applicant.userId,
+        applicationsCount: applicant.applications.length,
+        latestApplication: {
+          id: applicant.applications[0].id,
+          status: applicant.applications[0].status,
+          createdAt: applicant.applications[0].createdAt,
+        },
+      });
+    } else {
+      console.warn('⚠️ Applicant profile has no applications!');
     }
 
     return applicant;
@@ -461,7 +477,7 @@ export class ApplicantsService {
       };
     }
 
-    return this.prisma.applicant.findMany({
+    const result = await this.prisma.applicant.findMany({
       where,
       include: {
         user: {
@@ -470,37 +486,129 @@ export class ApplicantsService {
         applications: {
           include: {
             job: {
-              select: { id: true, title: true },
+              select: { id: true, title: true, company: true, clientId: true },
             },
           },
           orderBy: { createdAt: 'desc' },
+          // Explicitly ensure status is returned - Prisma should include it by default with include
+        },
+        interviews: {
+          select: {
+            id: true,
+            applicationId: true,
+            scheduledAt: true,
+            status: true,
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+    
+    // Log applications status for debugging
+    console.log('=== GET ALL APPLICANTS ===');
+    console.log('Total applicants:', result.length);
+    result.forEach((applicant, idx) => {
+      if (applicant.applications && applicant.applications.length > 0) {
+        applicant.applications.forEach((app: any, appIdx: number) => {
+          console.log(`Applicant ${idx + 1}, Application ${appIdx + 1}:`, {
+            applicationId: app.id,
+            status: app.status,
+            jobTitle: app.job?.title,
+          });
+        });
+      }
+    });
+    
+    return result;
   }
 
   async updateApplicantStatus(userId: string, data: UpdateApplicantStatusDto) {
+    console.log('=== UPDATE APPLICANT STATUS ===');
+    console.log('User ID:', userId);
+    console.log('Status:', data.status);
+    console.log('Notes:', data.notes);
+    
     const applicant = await this.prisma.applicant.findUnique({
       where: { userId },
       include: { applications: true },
     });
 
     if (!applicant) {
+      console.error('❌ Applicant not found for userId:', userId);
       throw new NotFoundException('Applicant not found');
     }
 
+    console.log('Found applicant:', applicant.id);
+    console.log('Applications count:', applicant.applications.length);
+
+    // Check if applicant has applications
+    if (applicant.applications.length === 0) {
+      console.error('❌ Applicant has no applications!');
+      console.error('Cannot update status for applicant without applications.');
+      throw new BadRequestException('Applicant has no job applications. Cannot update status without an application.');
+    }
+
     // Update the latest application status
-    if (applicant.applications.length > 0) {
-       const latestApplication =
-         applicant.applications[applicant.applications.length - 1];
-      await this.prisma.jobApplication.update({
+    // Sort applications by createdAt desc to get the latest
+    const sortedApplications = [...applicant.applications].sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    });
+    
+    const latestApplication = sortedApplications[0];
+    
+    console.log('Latest Application ID:', latestApplication.id);
+    console.log('Current Status:', latestApplication.status);
+    console.log('Updating to:', data.status);
+    
+    try {
+      const updated = await this.prisma.jobApplication.update({
         where: { id: latestApplication.id },
         data: { status: data.status as any },
       });
+      
+      console.log('✅ Application status updated successfully');
+      console.log('Updated Status:', updated.status);
+      
+      // Verify the update
+      // Small delay to ensure transaction is committed before verification
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const verify = await this.prisma.jobApplication.findUnique({
+        where: { id: latestApplication.id },
+        select: { id: true, status: true },
+      });
+      
+      if (verify?.status === data.status) {
+        console.log('✅✅✅ Verified: Status saved correctly in database');
+        console.log('Final Status:', verify.status);
+      } else {
+        console.error('❌❌❌ Error: Status not saved correctly!');
+        console.error('Expected:', data.status);
+        console.error('Actual:', verify?.status);
+      }
+    } catch (error) {
+      console.error('❌ Error updating application status:', error);
+      throw error;
     }
 
-    return this.getProfile(userId);
+    // Get the updated profile with fresh data
+    const updatedProfile = await this.getProfile(userId);
+    
+    // Log the status from the profile
+    if (updatedProfile.applications && updatedProfile.applications.length > 0) {
+      const latestApp = updatedProfile.applications[0];
+      console.log('📤 Returning updated applicant profile:', {
+        userId: updatedProfile.userId,
+        latestApplicationId: latestApp.id,
+        latestApplicationStatus: latestApp.status,
+        expectedStatus: data.status,
+        match: latestApp.status === data.status,
+      });
+    }
+    
+    return updatedProfile;
   }
 
   async updateApplicantRating(userId: string, data: UpdateApplicantRatingDto) {

@@ -225,6 +225,25 @@ const HRCandidates = () => {
           // استخدام المقابلة من الجدول الرئيسي أولاً (المحفوظة في الداتابيز)، ثم الجدولة، ثم المرتبطة بالمتقدم
           const interviewToUse = mainTableInterview || scheduledInterview || relatedInterview;
 
+          // Log status for debugging - IMPORTANT: app.status should come from database
+          console.log(`📋 Application ${app.id} status from API:`, {
+            applicationId: app.id,
+            status: app.status,
+            statusType: typeof app.status,
+            isNull: app.status === null,
+            isUndefined: app.status === undefined,
+          });
+          
+          // Use the status from database, but if it's truly missing, default to PENDING
+          // However, we should never see null/undefined if the update worked correctly
+          const finalStatus = (app.status && app.status !== 'null' && app.status !== 'undefined') 
+            ? app.status 
+            : 'PENDING';
+          
+          if (finalStatus === 'PENDING' && app.status !== 'PENDING') {
+            console.warn(`⚠️ WARNING: Application ${app.id} status was ${app.status}, defaulting to PENDING`);
+          }
+          
           return {
             id,
             userId: apiApplicant.userId,
@@ -235,7 +254,7 @@ const HRCandidates = () => {
             position: app.job?.title || 'غير محدد',
             experience: apiApplicant.experience || 'غير محدد',
             location: apiApplicant.location || 'غير محدد',
-            status: app.status || 'PENDING',
+            status: finalStatus, // Use the status from database
             appliedDate: new Date(app.createdAt || apiApplicant.createdAt).toLocaleDateString('ar-SA'),
             rating: apiApplicant.rating || 0,
             skills: apiApplicant.skills ? apiApplicant.skills.split(',') : [],
@@ -431,8 +450,8 @@ const HRCandidates = () => {
       
       if (!applicant) {
         toast({
-          title: "خطأ في التحديث",
-          description: "لا يمكن العثور على المرشح",
+          title: t('common.error'),
+          description: t('hr.candidates.applicantNotFound'),
           variant: "destructive",
         });
         return;
@@ -447,36 +466,208 @@ const HRCandidates = () => {
         "عرض": "OFFER"
       };
       
-      const englishStatus = statusMap[status] || status;
+      const englishStatus = statusMap[status] || status.toUpperCase();
       
-      // إذا كان status هو OFFER وكان هناك applicationId، استخدم updateApplicationStatus
-      if (englishStatus === 'OFFER' && applicant.applicationId) {
-        await hrApiService.updateApplicationStatus(applicant.applicationId, englishStatus);
+      console.log('=== UPDATE APPLICANT STATUS ===');
+      console.log('Applicant ID:', applicantId);
+      console.log('Status (Arabic):', status);
+      console.log('Status (English):', englishStatus);
+      console.log('Applicant data:', {
+        id: applicant.id,
+        applicationId: applicant.applicationId,
+        userId: applicant.userId,
+        name: applicant.name
+      });
+      
+      let updatedApplication;
+      
+      // Use updateApplicationStatus if applicationId exists (preferred method)
+      if (applicant.applicationId) {
+        console.log('Using updateApplicationStatus with applicationId:', applicant.applicationId);
+        updatedApplication = await hrApiService.updateApplicationStatus(applicant.applicationId, englishStatus);
+        console.log('✅ Application status updated successfully');
+        console.log('Updated application response:', updatedApplication);
       } else if (applicant.userId) {
-        // للـ status الأخرى، استخدم updateApplicantStatus
-        await hrApiService.updateApplicantStatus(applicant.userId, englishStatus);
+        // Fallback: use updateApplicantStatus if no applicationId (updates latest application)
+        console.log('⚠️ No applicationId found, using updateApplicantStatus with userId:', applicant.userId);
+        console.log('⚠️ This will update the latest application for this applicant');
+        
+        updatedApplication = await hrApiService.updateApplicantStatus(applicant.userId, englishStatus);
+        console.log('✅ Applicant status updated successfully');
+        console.log('Updated applicant response (full):', JSON.stringify(updatedApplication, null, 2));
+        console.log('Response structure:', {
+          hasStatus: !!updatedApplication.status,
+          hasApplications: !!updatedApplication.applications,
+          applicationsLength: updatedApplication.applications?.length || 0,
+          allKeys: Object.keys(updatedApplication || {}),
+        });
+        
+        // If response has applications, log them
+        if (updatedApplication.applications && updatedApplication.applications.length > 0) {
+          console.log('Applications in response:', updatedApplication.applications.map((app: any) => ({
+            id: app.id,
+            status: app.status,
+            jobTitle: app.job?.title,
+            createdAt: app.createdAt,
+          })));
+        } else {
+          console.error('❌ No applications found in response!');
+          console.error('This means the applicant has no applications in the database.');
+          console.error('Cannot update status for applicant without applications.');
+          
+          toast({
+            title: t('common.error'),
+            description: 'لا يمكن تحديث حالة المرشح لأنه لا يملك أي طلبات وظائف في النظام. يجب على المرشح التقدم لوظيفة أولاً.',
+            variant: 'destructive',
+          });
+          
+          // Don't continue if there are no applications
+          return;
+        }
       } else {
         throw new Error('لا يمكن العثور على معرف المستخدم أو الطلب');
       }
       
-      setApplicants(prev => prev.map(applicant => 
-        applicant.id === applicantId 
-          ? { ...applicant, status: englishStatus } 
-          : applicant
-      ));
+      // Verify the update was successful and extract the actual status
+      let actualStatus: string | undefined;
+      let updatedApplicationId: string | undefined;
+      
+      if (updatedApplication) {
+        // For updateApplicationStatus, the status is directly in the response
+        if (updatedApplication.status) {
+          actualStatus = updatedApplication.status;
+          updatedApplicationId = updatedApplication.id;
+          console.log('✅ Found status directly in response');
+        } 
+        // For updateApplicantStatus, the status is in applications[0].status
+        // The backend should return applications ordered by createdAt desc, so [0] is the latest
+        else if (updatedApplication.applications && updatedApplication.applications.length > 0) {
+          // Sort applications by createdAt desc to ensure we get the latest (in case backend didn't sort)
+          const sortedApps = [...updatedApplication.applications].sort((a: any, b: any) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+          
+          const latestApp = sortedApps[0];
+          actualStatus = latestApp.status;
+          updatedApplicationId = latestApp.id;
+          console.log('✅ Found status in applications array:', {
+            applicationId: latestApp.id,
+            status: latestApp.status,
+            createdAt: latestApp.createdAt,
+            totalApplications: updatedApplication.applications.length,
+          });
+          
+          // Log all applications for debugging
+          console.log('📋 All applications in response:', sortedApps.map((app: any, idx: number) => ({
+            index: idx,
+            id: app.id,
+            status: app.status,
+            createdAt: app.createdAt,
+            jobTitle: app.job?.title,
+          })));
+        }
+        
+        console.log('📊 Actual status from API response:', actualStatus);
+        console.log('📊 Expected status:', englishStatus);
+        console.log('📊 Updated Application ID:', updatedApplicationId);
+        console.log('📊 Full response structure:', {
+          hasStatus: !!updatedApplication.status,
+          hasApplications: !!updatedApplication.applications,
+          applicationsCount: updatedApplication.applications?.length || 0,
+        });
+        
+        if (actualStatus && actualStatus !== englishStatus) {
+          console.warn(`⚠️ Status mismatch! Expected: ${englishStatus}, Got: ${actualStatus}`);
+        } else if (!actualStatus) {
+          console.warn(`⚠️ Could not find status in API response!`);
+        } else {
+          console.log(`✅ Status matches! ${actualStatus} === ${englishStatus}`);
+          
+          // If we got an applicationId from the update and didn't have one before, update local state
+          if (updatedApplicationId && !applicant.applicationId) {
+            console.log('🔄 Updating local applicant with applicationId:', updatedApplicationId);
+            setApplicants(prev => prev.map(app => 
+              app.id === applicantId 
+                ? { ...app, applicationId: updatedApplicationId, status: englishStatus } 
+                : app
+            ));
+          }
+        }
+      }
+      
+      // Update local state immediately for better UX
+      // Use the actual status from API response if available, otherwise use englishStatus
+      const statusToUse = actualStatus || englishStatus;
+      
+      setApplicants(prev => prev.map(app => {
+        if (app.id === applicantId) {
+          const updatedApp = { 
+            ...app, 
+            status: statusToUse,
+          };
+          
+          // If we got an applicationId from the update, add it
+          if (updatedApplicationId && !app.applicationId) {
+            updatedApp.applicationId = updatedApplicationId;
+          }
+          
+          return updatedApp;
+        }
+        return app;
+      }));
 
       toast({
-        title: "تم التحديث",
+        title: t('common.success'),
         description: `تم تحديث حالة ${applicant.name} إلى ${status}`,
       });
       
-      // إعادة تحميل البيانات
-      await fetchApplicants();
-    } catch (error) {
-      console.error('Error updating applicant status:', error);
+      // إعادة تحميل البيانات بعد تأخير للتأكد من تحديث الخادم
+      // ننتظر 2 ثانية للتأكد من أن قاعدة البيانات تم تحديثها بالكامل
+      setTimeout(async () => {
+        console.log('🔄 Refreshing applicants list after status update...');
+        console.log('⏰ Waiting 2 seconds to ensure database transaction is complete...');
+        await fetchApplicants();
+        
+        // Check the status after refresh
+        const refreshedApplicants = await hrApiService.getApplicants();
+        const refreshedApp = refreshedApplicants.data
+          .flatMap((a: any) => a.applications || [])
+          .find((app: any) => app.id === applicant.applicationId);
+        
+        if (refreshedApp) {
+          console.log('📋 Status after refresh:', {
+            applicationId: refreshedApp.id,
+            status: refreshedApp.status,
+            expected: englishStatus,
+            match: refreshedApp.status === englishStatus
+          });
+          
+          if (refreshedApp.status !== englishStatus) {
+            console.error('❌ Status mismatch after refresh!');
+            console.error('Expected:', englishStatus);
+            console.error('Actual:', refreshedApp.status);
+            
+            toast({
+              title: t('common.warning'),
+              description: `تم تحديث الحالة لكن قد تحتاج إلى إعادة تحميل الصفحة`,
+              variant: 'destructive',
+            });
+          }
+        }
+      }, 2000);
+    } catch (error: any) {
+      console.error('=== ERROR UPDATING APPLICANT STATUS ===');
+      console.error('Error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      const errorMessage = error.response?.data?.message || error.message || t('hr.candidates.updateStatusError');
+      
       toast({
-        title: "خطأ في التحديث",
-        description: "حدث خطأ أثناء تحديث حالة المرشح",
+        title: t('common.error'),
+        description: errorMessage,
         variant: "destructive",
       });
     }

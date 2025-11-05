@@ -86,6 +86,11 @@ export class JobsController {
     @Param('applicationId') applicationId: string,
     @Body() body: { status: ApplicationStatus },
   ) {
+    console.log('=== CONTROLLER: UPDATE APPLICATION STATUS ===');
+    console.log('Application ID:', applicationId);
+    console.log('Status from body:', body.status);
+    console.log('Full body:', JSON.stringify(body, null, 2));
+    
     return this.jobs.changeApplicationStatus(applicationId, body.status);
   }
 

@@ -135,6 +135,10 @@ export class ApplicantsController {
     @Param('userId') userId: string,
     @Body() updateStatusDto: UpdateApplicantStatusDto,
   ) {
+    console.log('=== CONTROLLER: UPDATE APPLICANT STATUS ===');
+    console.log('User ID:', userId);
+    console.log('Status DTO:', JSON.stringify(updateStatusDto, null, 2));
+    
     return this.applicantsService.updateApplicantStatus(
       userId,
       updateStatusDto,

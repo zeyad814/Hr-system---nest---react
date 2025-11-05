@@ -55,7 +55,7 @@ export default function HRSkillPackages() {
       console.error('Error fetching packages:', error);
       toast({
         title: t('common.error'),
-        description: t('admin.skillPackages.fetchError'),
+        description: t('hr.skillPackages.fetchError'),
         variant: "destructive"
       });
       setPackages([]);
@@ -108,14 +108,14 @@ export default function HRSkillPackages() {
       if (selectedPackage) {
         await api.patch(`/skill-packages/${selectedPackage.id}`, formData);
         toast({
-          title: t('admin.skillPackages.updateSuccess'),
-          description: t('admin.skillPackages.updateSuccessDesc'),
+          title: t('hr.skillPackages.updateSuccess'),
+          description: t('hr.skillPackages.updateSuccessDesc'),
         });
       } else {
         await api.post('/skill-packages', formData);
         toast({
-          title: t('admin.skillPackages.createSuccess'),
-          description: t('admin.skillPackages.createSuccessDesc'),
+          title: t('hr.skillPackages.createSuccess'),
+          description: t('hr.skillPackages.createSuccessDesc'),
         });
       }
       setIsAddOpen(false);
@@ -124,7 +124,7 @@ export default function HRSkillPackages() {
       fetchPackages();
     } catch (error: any) {
       console.error('Error saving package:', error);
-      const errorMessage = error.response?.data?.message || error.message || t('admin.skillPackages.saveError');
+      const errorMessage = error.response?.data?.message || error.message || t('hr.skillPackages.saveError');
       toast({
         title: t('common.error'),
         description: errorMessage,
@@ -142,8 +142,8 @@ export default function HRSkillPackages() {
       setLoading(true);
       await api.delete(`/skill-packages/${selectedPackage.id}`);
       toast({
-        title: t('admin.skillPackages.deleteSuccess'),
-        description: t('admin.skillPackages.deleteSuccessDesc'),
+        title: t('hr.skillPackages.deleteSuccess'),
+        description: t('hr.skillPackages.deleteSuccessDesc'),
       });
       setIsDeleteOpen(false);
       setSelectedPackage(null);
@@ -152,7 +152,7 @@ export default function HRSkillPackages() {
       console.error('Error deleting package:', error);
       toast({
         title: t('common.error'),
-        description: t('admin.skillPackages.deleteError'),
+        description: t('hr.skillPackages.deleteError'),
         variant: "destructive"
       });
     } finally {
@@ -171,12 +171,12 @@ export default function HRSkillPackages() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">{t('admin.skillPackages.title')}</h1>
-            <p className="text-muted-foreground">{t('admin.skillPackages.subtitle')}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">{t('hr.skillPackages.title')}</h1>
+            <p className="text-muted-foreground">{t('hr.skillPackages.subtitle')}</p>
           </div>
           <Button onClick={handleAdd} className="gap-2">
             <Plus className="h-4 w-4" />
-            {t('admin.skillPackages.addPackage')}
+            {t('hr.skillPackages.addPackage')}
           </Button>
         </div>
 
@@ -186,7 +186,7 @@ export default function HRSkillPackages() {
             <div className="relative">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={t('admin.skillPackages.searchPlaceholder')}
+                placeholder={t('hr.skillPackages.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pr-10"
@@ -201,7 +201,7 @@ export default function HRSkillPackages() {
             <div className="col-span-full text-center p-8">{t('common.loading')}</div>
           ) : filteredPackages.length === 0 ? (
             <div className="col-span-full text-center p-8 text-muted-foreground">
-              {t('admin.skillPackages.noPackages')}
+              {t('hr.skillPackages.noPackages')}
             </div>
           ) : (
             filteredPackages.map((pkg) => (
@@ -211,7 +211,7 @@ export default function HRSkillPackages() {
                     <div className="flex-1">
                       <CardTitle className="text-lg mb-2">{pkg.name}</CardTitle>
                       <div className="flex flex-wrap gap-2 mb-2">
-                        {pkg.isDefault && <Badge variant="outline">{t('admin.skillPackages.default')}</Badge>}
+                        {pkg.isDefault && <Badge variant="outline">{t('hr.skillPackages.default')}</Badge>}
                       </div>
                     </div>
                     <Package className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -223,7 +223,7 @@ export default function HRSkillPackages() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <TrendingUp className="h-4 w-4" />
-                    {t('admin.skillPackages.usedTimes', { count: pkg.usageCount })}
+                    {t('hr.skillPackages.usedTimes', { count: pkg.usageCount })}
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => handleView(pkg)}>
@@ -253,45 +253,45 @@ export default function HRSkillPackages() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>
-                  {isEditOpen ? t('admin.skillPackages.editPackage') : t('admin.skillPackages.addPackage')}
+                  {isEditOpen ? t('hr.skillPackages.editPackage') : t('hr.skillPackages.addPackage')}
                 </DialogTitle>
                 <DialogDescription>
-                  {isEditOpen ? t('admin.skillPackages.editPackageDesc') : t('admin.skillPackages.addPackageDesc')}
+                  {isEditOpen ? t('hr.skillPackages.editPackageDesc') : t('hr.skillPackages.addPackageDesc')}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 <div className="space-y-2">
-                  <Label>{t('admin.skillPackages.name')} *</Label>
+                  <Label>{t('hr.skillPackages.name')} *</Label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder={t('admin.skillPackages.namePlaceholder')}
+                    placeholder={t('hr.skillPackages.namePlaceholder')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('admin.skillPackages.description')}</Label>
+                  <Label>{t('hr.skillPackages.description')}</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder={t('admin.skillPackages.descriptionPlaceholder')}
+                    placeholder={t('hr.skillPackages.descriptionPlaceholder')}
                     rows={2}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('admin.skillPackages.skills')} *</Label>
+                  <Label>{t('hr.skillPackages.skills')} *</Label>
                   <Textarea
                     value={formData.skills}
                     onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                    placeholder={t('admin.skillPackages.skillsPlaceholder')}
+                    placeholder={t('hr.skillPackages.skillsPlaceholder')}
                     rows={3}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('admin.skillPackages.requirements')} *</Label>
+                  <Label>{t('hr.skillPackages.requirements')} *</Label>
                   <Textarea
                     value={formData.requirements}
                     onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    placeholder={t('admin.skillPackages.requirementsPlaceholder')}
+                    placeholder={t('hr.skillPackages.requirementsPlaceholder')}
                     rows={3}
                   />
                 </div>
@@ -318,23 +318,23 @@ export default function HRSkillPackages() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  {selectedPackage.isDefault && <Badge variant="outline">{t('admin.skillPackages.default')}</Badge>}
+                  {selectedPackage.isDefault && <Badge variant="outline">{t('hr.skillPackages.default')}</Badge>}
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('admin.skillPackages.skills')}</Label>
+                  <Label>{t('hr.skillPackages.skills')}</Label>
                   <div className="p-3 bg-muted rounded-md">
                     <pre className="whitespace-pre-wrap text-sm">{selectedPackage.skills}</pre>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('admin.skillPackages.requirements')}</Label>
+                  <Label>{t('hr.skillPackages.requirements')}</Label>
                   <div className="p-3 bg-muted rounded-md">
                     <pre className="whitespace-pre-wrap text-sm">{selectedPackage.requirements}</pre>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <TrendingUp className="h-4 w-4" />
-                  {t('admin.skillPackages.usedTimes', { count: selectedPackage.usageCount })}
+                  {t('hr.skillPackages.usedTimes', { count: selectedPackage.usageCount })}
                 </div>
               </div>
               <DialogFooter>
@@ -351,9 +351,9 @@ export default function HRSkillPackages() {
           <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{t('admin.skillPackages.deletePackage')}</DialogTitle>
+                <DialogTitle>{t('hr.skillPackages.deletePackage')}</DialogTitle>
                 <DialogDescription>
-                  {t('admin.skillPackages.deleteConfirmation', { name: selectedPackage.name })}
+                  {t('hr.skillPackages.deleteConfirmation', { name: selectedPackage.name })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>

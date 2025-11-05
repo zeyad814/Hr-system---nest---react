@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateJobDto {
@@ -33,7 +33,7 @@ export interface UpdateJobDto {
   clientId?: string;
 }
 
-export type ApplicationStatus = 'PENDING' | 'INTERVIEW' | 'REJECTED' | 'HIRED';
+export type ApplicationStatus = 'PENDING' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED' | 'WITHDRAWN';
 
 @Injectable()
 export class JobsService {
@@ -156,10 +156,102 @@ export class JobsService {
     applicationId: string,
     status: ApplicationStatus,
   ) {
-    return this.prisma.jobApplication.update({
-      where: { id: applicationId },
-      data: { status },
-    });
+    console.log('=== UPDATE APPLICATION STATUS ===');
+    console.log('Application ID:', applicationId);
+    console.log('New Status (raw):', status);
+    console.log('Status type:', typeof status);
+    
+    // Validate and normalize status
+    const validStatuses: ApplicationStatus[] = ['PENDING', 'INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN'];
+    const normalizedStatus = status.toUpperCase() as ApplicationStatus;
+    
+    if (!validStatuses.includes(normalizedStatus)) {
+      console.error('❌ Invalid status:', status);
+      throw new BadRequestException(`Invalid status: ${status}. Valid statuses are: ${validStatuses.join(', ')}`);
+    }
+    
+    console.log('Normalized Status:', normalizedStatus);
+    
+    try {
+      // First, verify the application exists
+      const existingApplication = await this.prisma.jobApplication.findUnique({
+        where: { id: applicationId },
+        select: { id: true, status: true, jobId: true, applicantId: true },
+      });
+      
+      if (!existingApplication) {
+        console.error('❌ Application not found:', applicationId);
+        throw new NotFoundException(`Application with ID ${applicationId} not found`);
+      }
+      
+      console.log('Current Status:', existingApplication.status);
+      console.log('Updating to:', normalizedStatus);
+      
+      // Update the status
+      const updated = await this.prisma.jobApplication.update({
+        where: { id: applicationId },
+        data: { status: normalizedStatus },
+      });
+      
+      console.log('✅ Status updated successfully');
+      console.log('Updated Status:', updated.status);
+      
+      // Verify the update immediately with a fresh query
+      // Use a small delay to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const verify = await this.prisma.jobApplication.findUnique({
+        where: { id: applicationId },
+        select: { 
+          id: true, 
+          status: true,
+          updatedAt: true,
+        },
+      });
+      
+      if (verify?.status === normalizedStatus) {
+        console.log('✅✅✅ Verified: Status saved correctly in database');
+        console.log('Final Status:', verify.status);
+        console.log('Updated At:', verify.updatedAt);
+      } else {
+        console.error('❌❌❌ Error: Status not saved correctly!');
+        console.error('Expected:', normalizedStatus);
+        console.error('Actual:', verify?.status);
+        console.error('This might indicate a database transaction issue or caching problem');
+      }
+      
+      // Return the updated application with all fields to ensure frontend receives correct data
+      const finalApplication = await this.prisma.jobApplication.findUnique({
+        where: { id: applicationId },
+        include: {
+          job: {
+            select: { id: true, title: true, company: true },
+          },
+          applicant: {
+            select: { 
+              id: true,
+              userId: true,
+              user: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+        },
+      });
+      
+      console.log('📤 Returning updated application to frontend:', {
+        id: finalApplication?.id,
+        status: finalApplication?.status,
+      });
+      
+      return finalApplication || updated;
+    } catch (error) {
+      console.error('❌ Error updating application status:', error);
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to update application status: ${error.message}`);
+    }
   }
 
   // Active Jobs APIs
