@@ -23,7 +23,9 @@
       "Bash(cmd //c start \"Docker Desktop\" \"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe\" 2)",
       "Bash(docker compose:*)",
       "Bash(docker start:*)",
-      "Bash(HR_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbWhqZTdzYWcwMDAxY2JlY3hwdDNyZzBoIiwiZW1haWwiOiJockB0ZXN0LmNvbSIsInJvbGUiOiJIUiIsImlhdCI6MTc2MjM0NTU0OCwiZXhwIjoxNzYyMzQ5MTQ4fQ.IbSelkrpge7vOXbpC3g6EKXRswya1FgtedVq_GwFaj0\")"
+      "Bash(HR_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbWhqZTdzYWcwMDAxY2JlY3hwdDNyZzBoIiwiZW1haWwiOiJockB0ZXN0LmNvbSIsInJvbGUiOiJIUiIsImlhdCI6MTc2MjM0NTU0OCwiZXhwIjoxNzYyMzQ5MTQ4fQ.IbSelkrpge7vOXbpC3g6EKXRswya1FgtedVq_GwFaj0\")",
+      "Bash(timeout 10 bash:*)",
+      "Bash(npm run db:dev:restart:*)"
     ],
     "deny": [],
     "ask": []

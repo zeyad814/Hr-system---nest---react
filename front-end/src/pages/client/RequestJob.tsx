@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import { Label } from "@/components/ui/label";
 import { 
   Select,
@@ -68,7 +69,7 @@ const ClientRequestJob = () => {
      currency: "AED",
      experience: "",
      positions: 1,
-     requirements: "",
+     requirements: [] as string[],
      salaryMin: "",
      salaryMax: "",
      deadline: ""
@@ -104,16 +105,18 @@ const ClientRequestJob = () => {
   const handleDepartmentChange = (departmentId: string) => {
     // Find the selected department
     const selectedDepartment = departments.find(dept => dept.id === departmentId);
-    
+
     if (selectedDepartment) {
       setFormData(prev => ({
         ...prev,
         department: departmentId,
         // Always update description and requirements when department changes
         description: selectedDepartment.description,
-        requirements: selectedDepartment.requirements
+        requirements: typeof selectedDepartment.requirements === 'string'
+          ? selectedDepartment.requirements.split(',').map(s => s.trim()).filter(s => s)
+          : (selectedDepartment.requirements || [])
       }));
-      
+
       // Show auto-fill effect
       setIsAutoFilled(true);
       setTimeout(() => setIsAutoFilled(false), 2000);
@@ -196,6 +199,9 @@ const ClientRequestJob = () => {
         department: selectedDept?.name || formData.department,
         location: selectedLocation?.name || formData.location,
         salaryRange: salaryRange,
+        requirements: Array.isArray(formData.requirements)
+          ? formData.requirements.join(', ')
+          : formData.requirements,
         positions: Number(formData.positions) || 1,
         submittedDate: new Date().toISOString().split('T')[0]
       };
@@ -232,7 +238,7 @@ const ClientRequestJob = () => {
          currency: "AED",
          experience: "",
          positions: 1,
-         requirements: "",
+         requirements: [],
          salaryMin: "",
          salaryMax: "",
          deadline: ""
@@ -308,7 +314,9 @@ const ClientRequestJob = () => {
       currency: extractedCurrency,
       experience: request.experience || "",
       positions: request.positions || 1,
-      requirements: request.requirements || "",
+      requirements: typeof request.requirements === 'string'
+        ? request.requirements.split(',').map(s => s.trim()).filter(s => s)
+        : (request.requirements || []),
       salaryMin: salaryMin,
       salaryMax: salaryMax,
       deadline: request.deadline || ""
@@ -553,12 +561,22 @@ const ClientRequestJob = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="requirements">{t('client.requestJob.form.requirements')}</Label>
-                  <Textarea
-                    id="requirements"
-                    placeholder={t('client.requestJob.form.requirementsPlaceholder')}
-                    rows={3}
+                  <TagsInput
                     value={formData.requirements}
-                    onChange={(e) => setFormData({...formData, requirements: e.target.value})}
+                    onChange={(tags) => setFormData({...formData, requirements: tags})}
+                    suggestions={[
+                      "درجة بكالوريوس في علوم الحاسب",
+                      "خبرة 3 سنوات على الأقل",
+                      "إجادة اللغة الإنجليزية",
+                      "القدرة على العمل ضمن فريق",
+                      "مهارات تواصل ممتازة",
+                      "القدرة على حل المشكلات",
+                      "الاهتمام بالتفاصيل",
+                      "مهارات تحليلية قوية",
+                      "معرفة بمنهجيات Agile",
+                      "خبرة في العمل عن بُعد"
+                    ]}
+                    placeholder="أضف متطلب..."
                     className={isAutoFilled ? "border-green-300 bg-green-50 transition-all duration-500" : ""}
                   />
                   {formData.department && departments.find(dept => dept.id === formData.department)?.requirements && (
@@ -617,7 +635,7 @@ const ClientRequestJob = () => {
                           currency: "AED",
                           experience: "",
                           positions: 1,
-                          requirements: "",
+                          requirements: [],
                           salaryMin: "",
                           salaryMax: "",
                           deadline: ""

@@ -835,7 +835,7 @@ const HRCandidates = () => {
         interviewerEmail: 'hr@company.com', // You might want to get this from user context
         scheduledDate: scheduledAt.toISOString(),
         duration: 60,
-        meetingType: 'GOOGLE_MEET',
+        meetingType: 'ZOOM', // Changed from GOOGLE_MEET to ZOOM
         notes: `مقابلة مجدولة مع ${selectedApplicantForInterview.name}`,
         applicationId: selectedApplicantForInterview.applicationId,
       } as any;

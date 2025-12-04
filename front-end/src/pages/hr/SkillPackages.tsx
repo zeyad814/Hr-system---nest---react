@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Search, Edit, Trash2, Eye, Package, TrendingUp } from "lucide-react";
@@ -41,8 +42,8 @@ export default function HRSkillPackages() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    skills: "",
-    requirements: "",
+    skills: [] as string[],
+    requirements: [] as string[],
     isDefault: false,
   });
 
@@ -73,8 +74,8 @@ export default function HRSkillPackages() {
     setFormData({
       name: "",
       description: "",
-      skills: "",
-      requirements: "",
+      skills: [],
+      requirements: [],
       isDefault: false,
     });
     setIsAddOpen(true);
@@ -85,8 +86,12 @@ export default function HRSkillPackages() {
     setFormData({
       name: package_.name,
       description: package_.description || "",
-      skills: package_.skills,
-      requirements: package_.requirements,
+      skills: typeof package_.skills === 'string'
+        ? package_.skills.split(',').map(s => s.trim()).filter(s => s)
+        : (package_.skills || []),
+      requirements: typeof package_.requirements === 'string'
+        ? package_.requirements.split(',').map(s => s.trim()).filter(s => s)
+        : (package_.requirements || []),
       isDefault: package_.isDefault,
     });
     setIsEditOpen(true);
@@ -105,14 +110,22 @@ export default function HRSkillPackages() {
   const handleSave = async () => {
     try {
       setLoading(true);
+
+      // Convert arrays to strings before sending to API
+      const dataToSend = {
+        ...formData,
+        skills: Array.isArray(formData.skills) ? formData.skills.join(', ') : formData.skills,
+        requirements: Array.isArray(formData.requirements) ? formData.requirements.join(', ') : formData.requirements,
+      };
+
       if (selectedPackage) {
-        await api.patch(`/skill-packages/${selectedPackage.id}`, formData);
+        await api.patch(`/skill-packages/${selectedPackage.id}`, dataToSend);
         toast({
           title: t('hr.skillPackages.updateSuccess'),
           description: t('hr.skillPackages.updateSuccessDesc'),
         });
       } else {
-        await api.post('/skill-packages', formData);
+        await api.post('/skill-packages', dataToSend);
         toast({
           title: t('hr.skillPackages.createSuccess'),
           description: t('hr.skillPackages.createSuccessDesc'),
@@ -279,20 +292,36 @@ export default function HRSkillPackages() {
                 </div>
                 <div className="space-y-2">
                   <Label>{t('hr.skillPackages.skills')} *</Label>
-                  <Textarea
+                  <TagsInput
                     value={formData.skills}
-                    onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                    placeholder={t('hr.skillPackages.skillsPlaceholder')}
-                    rows={3}
+                    onChange={(tags) => setFormData({ ...formData, skills: tags })}
+                    suggestions={[
+                      "JavaScript", "React", "Node.js", "Python", "Java", "TypeScript",
+                      "SQL", "MongoDB", "PostgreSQL", "AWS", "Docker", "Kubernetes",
+                      "Git", "REST API", "GraphQL", "HTML", "CSS", "Angular", "Vue.js",
+                      "Express.js", "Django", "Spring Boot", "C#", ".NET", "PHP", "Laravel"
+                    ]}
+                    placeholder="أضف مهارة..."
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('hr.skillPackages.requirements')} *</Label>
-                  <Textarea
+                  <TagsInput
                     value={formData.requirements}
-                    onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    placeholder={t('hr.skillPackages.requirementsPlaceholder')}
-                    rows={3}
+                    onChange={(tags) => setFormData({ ...formData, requirements: tags })}
+                    suggestions={[
+                      "درجة بكالوريوس في علوم الحاسب",
+                      "خبرة 3 سنوات على الأقل",
+                      "إجادة اللغة الإنجليزية",
+                      "القدرة على العمل ضمن فريق",
+                      "مهارات تواصل ممتازة",
+                      "القدرة على حل المشكلات",
+                      "الاهتمام بالتفاصيل",
+                      "مهارات تحليلية قوية",
+                      "معرفة بمنهجيات Agile",
+                      "خبرة في العمل عن بُعد"
+                    ]}
+                    placeholder="أضف متطلب..."
                   />
                 </div>
               </div>
@@ -300,7 +329,7 @@ export default function HRSkillPackages() {
                 <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); setSelectedPackage(null); }}>
                   {t('common.cancel')}
                 </Button>
-                <Button onClick={handleSave} disabled={loading || !formData.name || !formData.skills || !formData.requirements}>
+                <Button onClick={handleSave} disabled={loading || !formData.name || !formData.skills.length || !formData.requirements.length}>
                   {t('common.save')}
                 </Button>
               </DialogFooter>

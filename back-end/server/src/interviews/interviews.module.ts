@@ -19,7 +19,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     }),
   ],
   controllers: [InterviewSchedulerController, NotificationsController, InterviewsController],
-  providers: [InterviewsService, NotificationsService, InterviewSchedulerService, GoogleMeetService, ZoomService],
-  exports: [InterviewsService, NotificationsService, InterviewSchedulerService, GoogleMeetService, ZoomService],
+  providers: [InterviewsService, NotificationsService, InterviewSchedulerService, /*GoogleMeetService,*/ ZoomService],
+  exports: [InterviewsService, NotificationsService, InterviewSchedulerService, /*GoogleMeetService,*/ ZoomService],
 })
 export class InterviewsModule {}

@@ -77,7 +77,7 @@ const HRInterviews = () => {
     duration: 60,
     location: "",
     interviewType: "PHONE",
-    meetingType: "GOOGLE_MEET" as "GOOGLE_MEET" | "ZOOM",
+    meetingType: "ZOOM" as "GOOGLE_MEET" | "ZOOM", // Changed from GOOGLE_MEET to ZOOM
     notes: ""
   });
   
@@ -459,7 +459,7 @@ const HRInterviews = () => {
             duration: 60,
             location: "",
             interviewType: "PHONE",
-            meetingType: "GOOGLE_MEET",
+            meetingType: "ZOOM", // Changed from GOOGLE_MEET to ZOOM
             notes: ""
           });
           setFormErrors({});
@@ -526,7 +526,7 @@ const HRInterviews = () => {
           duration: 60,
           location: "",
           interviewType: "PHONE",
-          meetingType: "GOOGLE_MEET",
+          meetingType: "ZOOM", // Changed from GOOGLE_MEET to ZOOM
           notes: ""
         });
         setFormErrors({});
@@ -814,7 +814,7 @@ const HRInterviews = () => {
                       handleInputChange('interviewType', value);
                       // Reset meetingType if not VIDEO
                       if (value !== 'VIDEO') {
-                        setNewInterview(prev => ({ ...prev, meetingType: 'GOOGLE_MEET' }));
+                        setNewInterview(prev => ({ ...prev, meetingType: 'ZOOM' })); // Changed from GOOGLE_MEET to ZOOM
                       }
                     }}
                   >
@@ -839,15 +839,15 @@ const HRInterviews = () => {
                     <Label htmlFor="meetingType">
                       {t('hr.interviews.meetingPlatform')} <span className="text-red-500">*</span>
                     </Label>
-                    <Select 
-                      value={newInterview.meetingType} 
+                    <Select
+                      value={newInterview.meetingType}
                       onValueChange={(value) => setNewInterview(prev => ({ ...prev, meetingType: value as "GOOGLE_MEET" | "ZOOM" }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="GOOGLE_MEET">{t('hr.interviews.googleMeet')}</SelectItem>
+                        {/* <SelectItem value="GOOGLE_MEET">{t('hr.interviews.googleMeet')}</SelectItem> */}
                         <SelectItem value="ZOOM">{t('hr.interviews.zoom')}</SelectItem>
                       </SelectContent>
                     </Select>
@@ -905,7 +905,7 @@ const HRInterviews = () => {
                         duration: 60,
                         location: "",
                         interviewType: "PHONE",
-                        meetingType: "GOOGLE_MEET",
+                        meetingType: "ZOOM", // Changed from GOOGLE_MEET to ZOOM
                         notes: ""
                       });
                       setFormErrors({});

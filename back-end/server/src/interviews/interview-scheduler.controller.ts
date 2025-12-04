@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } fro
 import { InterviewSchedulerService } from './interview-scheduler.service';
 import { CreateInterviewScheduleDto, UpdateInterviewScheduleDto } from './dto/interview-schedule.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { GoogleMeetService } from './google-meet.service';
+// import { GoogleMeetService } from './google-meet.service';
 import { ZoomService } from './zoom.service';
 import { Public } from '../auth/public.decorator';
 
@@ -11,7 +11,7 @@ import { Public } from '../auth/public.decorator';
 export class InterviewSchedulerController {
   constructor(
     private readonly interviewSchedulerService: InterviewSchedulerService,
-    private readonly googleMeetService: GoogleMeetService,
+    // private readonly googleMeetService: GoogleMeetService,
     private readonly zoomService: ZoomService,
   ) {}
 
@@ -61,33 +61,34 @@ export class InterviewSchedulerController {
     return this.interviewSchedulerService.cancelInterviewSchedule(id);
   }
 
-  @Get('test-google-meet')
-  @Public()
-  async testGoogleMeet() {
-    try {
-      const testData = {
-        title: 'Test Google Meet',
-        description: 'Test meeting for Google Meet integration',
-        startTime: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
-        endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-        attendeeEmails: ['omarhashem20051310@gmail.com'],
-      };
+  // Google Meet is disabled
+  // @Get('test-google-meet')
+  // @Public()
+  // async testGoogleMeet() {
+  //   try {
+  //     const testData = {
+  //       title: 'Test Google Meet',
+  //       description: 'Test meeting for Google Meet integration',
+  //       startTime: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
+  //       endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+  //       attendeeEmails: ['omarhashem20051310@gmail.com'],
+  //     };
 
-      const result = await this.googleMeetService.createMeetingLink(testData);
-      
-      return {
-        success: true,
-        message: 'Google Meet integration is working!',
-        meetingData: result,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Google Meet integration failed',
-        error: error.message,
-      };
-    }
-  }
+  //     const result = await this.googleMeetService.createMeetingLink(testData);
+
+  //     return {
+  //       success: true,
+  //       message: 'Google Meet integration is working!',
+  //       meetingData: result,
+  //     };
+  //   } catch (error) {
+  //     return {
+  //       success: false,
+  //       message: 'Google Meet integration failed',
+  //       error: error.message,
+  //     };
+  //   }
+  // }
 
   @Get('test-zoom')
   @Public()

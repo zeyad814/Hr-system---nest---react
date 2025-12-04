@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TagsInput } from "@/components/ui/tags-input";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type Job = {
@@ -45,8 +46,8 @@ type JobFormData = {
   department: string;
   description: string;
   remoteWorkAvailable: boolean;
-  requirements: string;
-  requiredSkills: string;
+  requirements: string[];
+  requiredSkills: string[];
   salaryRange: string;
   applicationDeadline: string;
   clientId: string;
@@ -82,8 +83,8 @@ const AdminJobs = () => {
     department: "",
     description: "",
     remoteWorkAvailable: false,
-    requirements: "",
-    requiredSkills: "",
+    requirements: [],
+    requiredSkills: [],
     salaryRange: "",
     applicationDeadline: "",
     clientId: ""
@@ -138,13 +139,17 @@ const AdminJobs = () => {
       const package_ = skillPackages.find(p => p.id === packageId);
       if (package_) {
         setSelectedPackage(package_);
-        
-        // Apply package to form
+
+        // Apply package to form - convert strings to arrays
         setFormData(prev => ({
           ...prev,
           description: package_.description || "",
-          requiredSkills: package_.skills,
-          requirements: package_.requirements,
+          requiredSkills: typeof package_.skills === 'string'
+            ? package_.skills.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+            : (package_.skills || []),
+          requirements: typeof package_.requirements === 'string'
+            ? package_.requirements.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+            : (package_.requirements || []),
         }));
 
         // Increment usage count
@@ -175,8 +180,8 @@ const AdminJobs = () => {
       department: "",
       description: "",
       remoteWorkAvailable: false,
-      requirements: "",
-      requiredSkills: "",
+      requirements: [],
+      requiredSkills: [],
       salaryRange: "",
       applicationDeadline: "",
       clientId: ""
@@ -215,8 +220,12 @@ const AdminJobs = () => {
       department: job.department || "",
       description: job.description || "",
       remoteWorkAvailable: job.remoteWorkAvailable || false,
-      requirements: job.requirements,
-      requiredSkills: job.requiredSkills || "",
+      requirements: typeof job.requirements === 'string'
+        ? job.requirements.split(',').map(s => s.trim()).filter(s => s)
+        : (job.requirements || []),
+      requiredSkills: typeof job.requiredSkills === 'string'
+        ? (job.requiredSkills || "").split(',').map(s => s.trim()).filter(s => s)
+        : (job.requiredSkills || []),
       salaryRange: job.salaryRange,
       applicationDeadline: job.applicationDeadline.split('T')[0],
       clientId: job.clientId
@@ -232,13 +241,15 @@ const AdminJobs = () => {
   };
 
   const submitAdd = async () => {
-    if (!formData.title || !formData.company || !formData.location || !formData.requirements || !formData.salaryRange || !formData.applicationDeadline || !formData.clientId) {
+    if (!formData.title || !formData.company || !formData.location || !formData.requirements.length || !formData.salaryRange || !formData.applicationDeadline || !formData.clientId) {
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
       return;
     }
     try {
       await api.post("/jobs", {
         ...formData,
+        requirements: formData.requirements.join(', '),
+        requiredSkills: formData.requiredSkills.join(', '),
         applicationDeadline: new Date(formData.applicationDeadline).toISOString()
       });
       setIsAddOpen(false);
@@ -253,8 +264,8 @@ const AdminJobs = () => {
     console.log('submitEdit called');
     console.log('selectedJob:', selectedJob);
     console.log('formData:', formData);
-    
-    if (!selectedJob || !formData.title || !formData.company || !formData.location || !formData.requirements || !formData.salaryRange || !formData.applicationDeadline) {
+
+    if (!selectedJob || !formData.title || !formData.company || !formData.location || !formData.requirements.length || !formData.salaryRange || !formData.applicationDeadline) {
       console.log('Validation failed - missing required fields');
       toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
       return;
@@ -263,15 +274,19 @@ const AdminJobs = () => {
       console.log('Sending PUT request to:', `/jobs/${selectedJob.id}`);
       console.log('Request data:', {
         ...formData,
+        requirements: formData.requirements.join(', '),
+        requiredSkills: formData.requiredSkills.join(', '),
         applicationDeadline: new Date(formData.applicationDeadline).toISOString()
       });
-      
+
       await api.put(`/jobs/${selectedJob.id}`, {
         ...formData,
+        requirements: formData.requirements.join(', '),
+        requiredSkills: formData.requiredSkills.join(', '),
         applicationDeadline: new Date(formData.applicationDeadline).toISOString(),
         clientId: formData.clientId // Ensure clientId is included
       });
-      
+
       console.log('Update successful');
       setIsEditOpen(false);
       setSelectedJob(null); // Reset selectedJob after successful update
@@ -325,6 +340,29 @@ const AdminJobs = () => {
 
   const JobFormFields = () => {
     console.log('JobFormFields rendering with clients:', clients);
+
+    // Skill suggestions
+    const skillSuggestions = [
+      "JavaScript", "React", "Node.js", "Python", "Java", "TypeScript",
+      "SQL", "MongoDB", "PostgreSQL", "AWS", "Docker", "Kubernetes",
+      "Git", "REST API", "GraphQL", "HTML", "CSS", "Angular", "Vue.js",
+      "Express.js", "Django", "Spring Boot", "C#", ".NET", "PHP", "Laravel"
+    ];
+
+    // Requirements suggestions
+    const requirementsSuggestions = [
+      "درجة بكالوريوس في علوم الحاسب",
+      "خبرة 3 سنوات على الأقل",
+      "إجادة اللغة الإنجليزية",
+      "القدرة على العمل ضمن فريق",
+      "مهارات تواصل ممتازة",
+      "القدرة على حل المشكلات",
+      "الاهتمام بالتفاصيل",
+      "مهارات تحليلية قوية",
+      "معرفة بمنهجيات Agile",
+      "خبرة في العمل عن بُعد"
+    ];
+
     return (
     <div className="space-y-4 max-h-96 overflow-y-auto">
       {/* Skill Package Selector */}
@@ -438,21 +476,21 @@ const AdminJobs = () => {
 
       <div className="space-y-2">
         <Label>المتطلبات *</Label>
-        <Textarea 
-          value={formData.requirements} 
-          onChange={(e) => setFormData({...formData, requirements: e.target.value})} 
-          placeholder="المتطلبات والمؤهلات المطلوبة..." 
-          rows={3}
+        <TagsInput
+          value={formData.requirements}
+          onChange={(tags) => setFormData({...formData, requirements: tags})}
+          suggestions={requirementsSuggestions}
+          placeholder="أضف متطلب..."
         />
       </div>
 
       <div className="space-y-2">
         <Label>المهارات المطلوبة</Label>
-        <Textarea 
-          value={formData.requiredSkills} 
-          onChange={(e) => setFormData({...formData, requiredSkills: e.target.value})} 
-          placeholder="JavaScript, React, Node.js..." 
-          rows={2}
+        <TagsInput
+          value={formData.requiredSkills}
+          onChange={(tags) => setFormData({...formData, requiredSkills: tags})}
+          suggestions={skillSuggestions}
+          placeholder="أضف مهارة..."
         />
       </div>
 

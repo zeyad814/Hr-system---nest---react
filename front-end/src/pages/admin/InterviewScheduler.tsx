@@ -50,7 +50,7 @@ const InterviewScheduler: React.FC = () => {
     interviewerEmail: '',
     scheduledDate: '',
     duration: 60,
-    meetingType: 'GOOGLE_MEET' as 'GOOGLE_MEET' | 'ZOOM',
+    meetingType: 'ZOOM' as 'GOOGLE_MEET' | 'ZOOM', // Changed from GOOGLE_MEET to ZOOM
     notes: '',
   });
 
@@ -86,7 +86,7 @@ const InterviewScheduler: React.FC = () => {
       interviewerEmail: '',
       scheduledDate: '',
       duration: 60,
-      meetingType: 'GOOGLE_MEET',
+      meetingType: 'ZOOM', // Changed from GOOGLE_MEET to ZOOM
       notes: '',
     });
     setIsAddOpen(true);
@@ -453,7 +453,7 @@ const InterviewScheduler: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="GOOGLE_MEET">{t('admin.interviews.meetingType.google_meet')}</SelectItem>
+                      {/* <SelectItem value="GOOGLE_MEET">{t('admin.interviews.meetingType.google_meet')}</SelectItem> */}
                       <SelectItem value="ZOOM">{t('admin.interviews.meetingType.zoom')}</SelectItem>
                     </SelectContent>
                   </Select>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -43,8 +44,8 @@ const SkillPackages = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    skills: "",
-    requirements: "",
+    skills: [] as string[],
+    requirements: [] as string[],
     isDefault: false,
   });
 
@@ -77,8 +78,8 @@ const SkillPackages = () => {
     setFormData({
       name: "",
       description: "",
-      skills: "",
-      requirements: "",
+      skills: [],
+      requirements: [],
       isDefault: false,
     });
     setIsAddOpen(true);
@@ -91,8 +92,12 @@ const SkillPackages = () => {
     setFormData({
       name: package_.name,
       description: package_.description || "",
-      skills: package_.skills,
-      requirements: package_.requirements,
+      skills: typeof package_.skills === 'string'
+        ? package_.skills.split(',').map(s => s.trim()).filter(s => s)
+        : (package_.skills || []),
+      requirements: typeof package_.requirements === 'string'
+        ? package_.requirements.split(',').map(s => s.trim()).filter(s => s)
+        : (package_.requirements || []),
       isDefault: package_.isDefault,
     });
     setIsEditOpen(true);
@@ -116,10 +121,17 @@ const SkillPackages = () => {
       console.log('selectedPackage:', selectedPackage);
       console.log('isAddOpen:', isAddOpen);
       console.log('isEditOpen:', isEditOpen);
-      
+
+      // Convert arrays to strings before sending to API
+      const dataToSend = {
+        ...formData,
+        skills: Array.isArray(formData.skills) ? formData.skills.join(', ') : formData.skills,
+        requirements: Array.isArray(formData.requirements) ? formData.requirements.join(', ') : formData.requirements,
+      };
+
       if (selectedPackage) {
         console.log('Updating package:', selectedPackage.id);
-        const response = await api.patch(`/skill-packages/${selectedPackage.id}`, formData);
+        const response = await api.patch(`/skill-packages/${selectedPackage.id}`, dataToSend);
         console.log('Update response:', response.data);
         toast({
           title: t('admin.skillPackages.updateSuccess'),
@@ -127,7 +139,7 @@ const SkillPackages = () => {
         });
       } else {
         console.log('Creating new package');
-        const response = await api.post('/skill-packages', formData);
+        const response = await api.post('/skill-packages', dataToSend);
         console.log('Create response:', response.data);
         toast({
           title: t('admin.skillPackages.createSuccess'),
@@ -142,7 +154,7 @@ const SkillPackages = () => {
       console.error('Error saving package:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
-      
+
       const errorMessage = error.response?.data?.message || error.message || t('admin.skillPackages.saveError');
       toast({
         title: t('common.error'),
@@ -307,20 +319,36 @@ const SkillPackages = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>{t('admin.skillPackages.skills')} *</Label>
-                  <Textarea
+                  <TagsInput
                     value={formData.skills}
-                    onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                    placeholder={t('admin.skillPackages.skillsPlaceholder')}
-                    rows={3}
+                    onChange={(tags) => setFormData({ ...formData, skills: tags })}
+                    suggestions={[
+                      "JavaScript", "React", "Node.js", "Python", "Java", "TypeScript",
+                      "SQL", "MongoDB", "PostgreSQL", "AWS", "Docker", "Kubernetes",
+                      "Git", "REST API", "GraphQL", "HTML", "CSS", "Angular", "Vue.js",
+                      "Express.js", "Django", "Spring Boot", "C#", ".NET", "PHP", "Laravel"
+                    ]}
+                    placeholder="أضف مهارة..."
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('admin.skillPackages.requirements')} *</Label>
-                  <Textarea
+                  <TagsInput
                     value={formData.requirements}
-                    onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    placeholder={t('admin.skillPackages.requirementsPlaceholder')}
-                    rows={3}
+                    onChange={(tags) => setFormData({ ...formData, requirements: tags })}
+                    suggestions={[
+                      "درجة بكالوريوس في علوم الحاسب",
+                      "خبرة 3 سنوات على الأقل",
+                      "إجادة اللغة الإنجليزية",
+                      "القدرة على العمل ضمن فريق",
+                      "مهارات تواصل ممتازة",
+                      "القدرة على حل المشكلات",
+                      "الاهتمام بالتفاصيل",
+                      "مهارات تحليلية قوية",
+                      "معرفة بمنهجيات Agile",
+                      "خبرة في العمل عن بُعد"
+                    ]}
+                    placeholder="أضف متطلب..."
                   />
                 </div>
               </div>
@@ -328,7 +356,7 @@ const SkillPackages = () => {
                 <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); setSelectedPackage(null); }}>
                   {t('common.cancel')}
                 </Button>
-                <Button onClick={handleSave} disabled={loading || !formData.name || !formData.skills || !formData.requirements}>
+                <Button onClick={handleSave} disabled={loading || !formData.name || !formData.skills.length || !formData.requirements.length}>
                   {t('common.save')}
                 </Button>
               </DialogFooter>
