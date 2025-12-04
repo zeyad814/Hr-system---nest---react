@@ -8,6 +8,8 @@ import { hrApiService, type HRStats, type Job, type Interview, type Applicant, t
 import { useToast } from "@/hooks/use-toast";
 import { ReportFiltersModal, type ReportFilters } from "@/components/hr/ReportFiltersModal";
 import { CustomReportModal, type CustomReportConfig } from "@/components/hr/CustomReportModal";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { 
   FileBarChart, 
   Download, 
@@ -612,6 +614,246 @@ const HRReports = () => {
     });
   };
 
+  // Function to download all filtered reports as a single PDF
+  const handleDownloadAllReports = async (appliedFilters: ReportFilters) => {
+    try {
+      toast({
+        title: t('hr.reports.downloading'),
+        description: 'جاري تجميع جميع التقارير...',
+      });
+
+      // Create a new PDF document
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let yPosition = 20;
+      const pageHeight = pdf.internal.pageSize.height;
+      const margin = 20;
+      const lineHeight = 7;
+
+      // Helper function to add a new page if needed
+      const checkPageBreak = (requiredHeight: number) => {
+        if (yPosition + requiredHeight > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+      };
+
+      // Add title page
+      pdf.setFontSize(20);
+      pdf.text('تقرير شامل - HR Reports', pdf.internal.pageSize.width / 2, yPosition, { align: 'center' });
+      yPosition += 15;
+
+      pdf.setFontSize(12);
+      pdf.text(`تاريخ الإنشاء: ${new Date().toLocaleDateString('ar-SA')}`, pdf.internal.pageSize.width / 2, yPosition, { align: 'center' });
+      yPosition += 10;
+
+      // Add filter information
+      pdf.setFontSize(14);
+      pdf.text('معايير الفلترة:', margin, yPosition);
+      yPosition += 10;
+      pdf.setFontSize(10);
+
+      const filterTexts: string[] = [];
+      if (appliedFilters.dateRange.from || appliedFilters.dateRange.to) {
+        const from = appliedFilters.dateRange.from ? appliedFilters.dateRange.from.toLocaleDateString('ar-SA') : 'غير محدد';
+        const to = appliedFilters.dateRange.to ? appliedFilters.dateRange.to.toLocaleDateString('ar-SA') : 'غير محدد';
+        filterTexts.push(`نطاق التاريخ: من ${from} إلى ${to}`);
+      }
+      if (appliedFilters.jobStatus !== 'all') {
+        filterTexts.push(`حالة الوظيفة: ${appliedFilters.jobStatus}`);
+      }
+      if (appliedFilters.interviewType !== 'all') {
+        filterTexts.push(`نوع المقابلة: ${appliedFilters.interviewType}`);
+      }
+      if (appliedFilters.interviewStatus !== 'all') {
+        filterTexts.push(`حالة المقابلة: ${appliedFilters.interviewStatus}`);
+      }
+      if (appliedFilters.applicationStatus !== 'all') {
+        filterTexts.push(`حالة التقديم: ${appliedFilters.applicationStatus}`);
+      }
+      if (appliedFilters.clientId !== 'all') {
+        const client = clients.find(c => c.id === appliedFilters.clientId);
+        filterTexts.push(`العميل: ${client?.name || appliedFilters.clientId}`);
+      }
+      if (appliedFilters.department !== 'all') {
+        filterTexts.push(`القسم: ${appliedFilters.department}`);
+      }
+      if (appliedFilters.searchTerm) {
+        filterTexts.push(`كلمة البحث: ${appliedFilters.searchTerm}`);
+      }
+
+      if (filterTexts.length === 0) {
+        filterTexts.push('لا توجد فلاتر محددة - جميع البيانات');
+      }
+
+      filterTexts.forEach(text => {
+        checkPageBreak(lineHeight);
+        pdf.text(text, margin, yPosition);
+        yPosition += lineHeight;
+      });
+
+      yPosition += 10;
+
+      // Get filtered data
+      const filteredJobs = jobs.filter(job => {
+        if (appliedFilters.jobStatus !== 'all' && job.status !== appliedFilters.jobStatus) return false;
+        if (appliedFilters.clientId !== 'all' && job.clientId !== appliedFilters.clientId) return false;
+        return true;
+      });
+
+      const filteredInterviews = interviews.filter(interview => {
+        if (appliedFilters.interviewType !== 'all' && interview.type !== appliedFilters.interviewType) return false;
+        if (appliedFilters.interviewStatus !== 'all' && interview.status !== appliedFilters.interviewStatus) return false;
+        if (appliedFilters.dateRange.from && interview.scheduledAt && new Date(interview.scheduledAt) < appliedFilters.dateRange.from) return false;
+        if (appliedFilters.dateRange.to && interview.scheduledAt && new Date(interview.scheduledAt) > appliedFilters.dateRange.to) return false;
+        return true;
+      });
+
+      const filteredApplicants = applicants.filter(applicant => {
+        if (appliedFilters.applicationStatus !== 'all') {
+          const hasMatchingStatus = applicant.applications?.some(app => app.status === appliedFilters.applicationStatus);
+          if (!hasMatchingStatus) return false;
+        }
+        if (appliedFilters.searchTerm) {
+          const searchLower = appliedFilters.searchTerm.toLowerCase();
+          const matchesSearch = 
+            applicant.user?.name?.toLowerCase().includes(searchLower) ||
+            applicant.user?.email?.toLowerCase().includes(searchLower) ||
+            applicant.phone?.toLowerCase().includes(searchLower);
+          if (!matchesSearch) return false;
+        }
+        return true;
+      });
+
+      // Add Jobs Report
+      if (filteredJobs.length > 0) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.text('تقرير الوظائف', margin, yPosition);
+        yPosition += 10;
+
+        const jobsTableData = filteredJobs.map(job => [
+          job.title || 'غير محدد',
+          job.client?.name || 'غير محدد',
+          job.location || 'غير محدد',
+          job.status || 'غير محدد',
+          job.createdAt ? new Date(job.createdAt).toLocaleDateString('ar-SA') : 'غير محدد'
+        ]);
+
+        (pdf as any).autoTable({
+          startY: yPosition,
+          head: [['العنوان', 'الشركة', 'الموقع', 'الحالة', 'تاريخ النشر']],
+          body: jobsTableData,
+          theme: 'striped',
+          headStyles: { fillColor: [66, 139, 202], textColor: 255, fontStyle: 'bold' },
+          styles: { font: 'Arial', fontSize: 9, cellPadding: 3 },
+          margin: { left: margin, right: margin },
+          didDrawPage: (data: any) => {
+            yPosition = data.cursor.y + 10;
+          }
+        });
+
+        yPosition = (pdf as any).lastAutoTable.finalY + 10;
+      }
+
+      // Add Interviews Report
+      if (filteredInterviews.length > 0) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.text('تقرير المقابلات', margin, yPosition);
+        yPosition += 10;
+
+        const interviewsTableData = filteredInterviews.map(interview => [
+          interview.applicant?.user?.name || 'غير محدد',
+          interview.job?.title || 'غير محدد',
+          interview.scheduledAt ? new Date(interview.scheduledAt).toLocaleDateString('ar-SA') : 'غير محدد',
+          interview.scheduledAt ? new Date(interview.scheduledAt).toLocaleTimeString('ar-SA') : 'غير محدد',
+          interview.status || 'غير محدد'
+        ]);
+
+        (pdf as any).autoTable({
+          startY: yPosition,
+          head: [['المرشح', 'الوظيفة', 'التاريخ', 'الوقت', 'الحالة']],
+          body: interviewsTableData,
+          theme: 'striped',
+          headStyles: { fillColor: [66, 139, 202], textColor: 255, fontStyle: 'bold' },
+          styles: { font: 'Arial', fontSize: 9, cellPadding: 3 },
+          margin: { left: margin, right: margin },
+          didDrawPage: (data: any) => {
+            yPosition = data.cursor.y + 10;
+          }
+        });
+
+        yPosition = (pdf as any).lastAutoTable.finalY + 10;
+      }
+
+      // Add Applicants Report
+      if (filteredApplicants.length > 0) {
+        checkPageBreak(30);
+        pdf.setFontSize(16);
+        pdf.text('تقرير المتقدمين', margin, yPosition);
+        yPosition += 10;
+
+        const applicantsTableData = filteredApplicants.map(applicant => [
+          applicant.user?.name || 'غير محدد',
+          applicant.user?.email || 'غير محدد',
+          applicant.phone || 'غير محدد',
+          applicant.location || 'غير محدد',
+          applicant.createdAt ? new Date(applicant.createdAt).toLocaleDateString('ar-SA') : 'غير محدد'
+        ]);
+
+        (pdf as any).autoTable({
+          startY: yPosition,
+          head: [['الاسم', 'البريد الإلكتروني', 'الهاتف', 'الموقع', 'تاريخ التقديم']],
+          body: applicantsTableData,
+          theme: 'striped',
+          headStyles: { fillColor: [66, 139, 202], textColor: 255, fontStyle: 'bold' },
+          styles: { font: 'Arial', fontSize: 9, cellPadding: 3 },
+          margin: { left: margin, right: margin },
+          didDrawPage: (data: any) => {
+            yPosition = data.cursor.y + 10;
+          }
+        });
+
+        yPosition = (pdf as any).lastAutoTable.finalY + 10;
+      }
+
+      // Add Summary
+      checkPageBreak(40);
+      pdf.setFontSize(16);
+      pdf.text('ملخص التقرير', margin, yPosition);
+      yPosition += 10;
+
+      pdf.setFontSize(12);
+      const summaryData = [
+        `إجمالي الوظائف: ${filteredJobs.length}`,
+        `إجمالي المقابلات: ${filteredInterviews.length}`,
+        `إجمالي المتقدمين: ${filteredApplicants.length}`,
+      ];
+
+      summaryData.forEach(text => {
+        checkPageBreak(lineHeight + 2);
+        pdf.text(text, margin, yPosition);
+        yPosition += lineHeight + 2;
+      });
+
+      // Save the PDF
+      const fileName = `hr-reports-${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+
+      toast({
+        title: t('hr.reports.downloaded'),
+        description: 'تم تحميل جميع التقارير بنجاح',
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'خطأ',
+        description: 'فشل في إنشاء ملف PDF',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleCustomReport = (config: CustomReportConfig) => {
     toast({
       title: t('hr.reports.generatingReport'),
@@ -1159,6 +1401,7 @@ const HRReports = () => {
           isOpen={showFiltersModal}
           onClose={() => setShowFiltersModal(false)}
           onApplyFilters={handleApplyFilters}
+          onDownloadAll={handleDownloadAllReports}
           currentFilters={filters}
           clients={clients}
           departments={departments}

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, X, Filter } from 'lucide-react';
+import { CalendarIcon, X, Filter, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -29,6 +29,7 @@ interface ReportFiltersModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyFilters: (filters: ReportFilters) => void;
+  onDownloadAll?: (filters: ReportFilters) => void;
   currentFilters: ReportFilters;
   clients?: Array<{ id: string; name: string }>;
   departments?: string[];
@@ -38,6 +39,7 @@ export const ReportFiltersModal = ({
   isOpen,
   onClose,
   onApplyFilters,
+  onDownloadAll,
   currentFilters,
   clients = [],
   departments = []
@@ -287,6 +289,19 @@ export const ReportFiltersModal = ({
             {t('hr.reports.resetFilters')}
           </Button>
           <div className="flex gap-2">
+            {hasActiveFilters() && onDownloadAll && (
+              <Button 
+                variant="default" 
+                onClick={() => {
+                  onDownloadAll(filters);
+                  onClose();
+                }}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {t('hr.reports.downloadAll') || 'تحميل جميع التقارير'}
+              </Button>
+            )}
             <Button variant="outline" onClick={onClose}>
               {t('hr.reports.cancel')}
             </Button>
