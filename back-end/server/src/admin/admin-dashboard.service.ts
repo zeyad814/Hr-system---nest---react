@@ -7,6 +7,23 @@ export class AdminDashboardService {
 
   async getDashboardStats() {
     try {
+      // Get system settings to check visibility
+      let systemSettings = await this.prisma.systemSettings.findFirst();
+      if (!systemSettings) {
+        // Create default settings if none exist
+        systemSettings = await this.prisma.systemSettings.create({
+          data: {
+            showTotalUsers: true,
+            showTotalClients: true,
+            showTotalJobs: true,
+            showTotalContracts: true,
+            showTotalApplicants: true,
+            showMonthlyRevenue: true,
+          },
+        });
+      }
+
+      // Fetch all stats (we'll filter based on settings)
       const [
         totalUsers,
         totalClients,
@@ -15,15 +32,17 @@ export class AdminDashboardService {
         totalApplicants,
         monthlyRevenue,
       ] = await Promise.all([
-        this.prisma.user.count(),
-        this.prisma.client.count(),
-        this.prisma.job.count(),
-        this.prisma.contract.count(),
-        this.prisma.applicant.count(),
-        this.getMonthlyRevenue(),
+        systemSettings.showTotalUsers ? this.prisma.user.count() : Promise.resolve(0),
+        systemSettings.showTotalClients ? this.prisma.client.count() : Promise.resolve(0),
+        systemSettings.showTotalJobs ? this.prisma.job.count() : Promise.resolve(0),
+        systemSettings.showTotalContracts ? this.prisma.contract.count() : Promise.resolve(0),
+        systemSettings.showTotalApplicants ? this.prisma.applicant.count() : Promise.resolve(0),
+        systemSettings.showMonthlyRevenue ? this.getMonthlyRevenue() : Promise.resolve(0),
       ]);
 
-      const previousMonthRevenue = await this.getPreviousMonthRevenue();
+      const previousMonthRevenue = systemSettings.showMonthlyRevenue 
+        ? await this.getPreviousMonthRevenue() 
+        : 0;
       const revenueGrowth =
         previousMonthRevenue > 0
           ? ((monthlyRevenue - previousMonthRevenue) / previousMonthRevenue) *
@@ -31,13 +50,22 @@ export class AdminDashboardService {
           : 0;
 
       return {
-        totalUsers,
-        totalClients,
-        totalJobs,
-        totalContracts,
-        totalApplicants,
-        monthlyRevenue,
-        revenueGrowth: Math.round(revenueGrowth * 100) / 100,
+        totalUsers: systemSettings.showTotalUsers ? totalUsers : null,
+        totalClients: systemSettings.showTotalClients ? totalClients : null,
+        totalJobs: systemSettings.showTotalJobs ? totalJobs : null,
+        totalContracts: systemSettings.showTotalContracts ? totalContracts : null,
+        totalApplicants: systemSettings.showTotalApplicants ? totalApplicants : null,
+        monthlyRevenue: systemSettings.showMonthlyRevenue ? monthlyRevenue : null,
+        revenueGrowth: systemSettings.showMonthlyRevenue ? Math.round(revenueGrowth * 100) / 100 : null,
+        // Include visibility settings
+        visibility: {
+          showTotalUsers: systemSettings.showTotalUsers,
+          showTotalClients: systemSettings.showTotalClients,
+          showTotalJobs: systemSettings.showTotalJobs,
+          showTotalContracts: systemSettings.showTotalContracts,
+          showTotalApplicants: systemSettings.showTotalApplicants,
+          showMonthlyRevenue: systemSettings.showMonthlyRevenue,
+        },
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);

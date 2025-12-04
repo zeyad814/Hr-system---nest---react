@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LanguageToggle } from "@/components/ui/language-toggle";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 import api from "@/lib/api";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -66,6 +67,7 @@ interface RegisterForm {
 
 const Register = () => {
   const { t, isRTL } = useLanguage();
+  const { logo } = useSystemSettings();
   const [form, setForm] = useState<RegisterForm>({
     firstName: "",
     lastName: "",
@@ -718,7 +720,7 @@ const Register = () => {
               
               <div className="h-9 w-9 rounded-2xl flex-shrink-0 bg-white  ">
                 <a href="/" className="h-full w-full flex items-center justify-center">
-                  <img src="/logo.png" alt="YAS Logo" className="h-full w-full object-contain" />
+                  <img src={logo} alt="YAS Logo" className="h-full w-full object-contain" />
                   </a>
                 </div>
                 <div className="min-w-0 pr-2 pl-2">

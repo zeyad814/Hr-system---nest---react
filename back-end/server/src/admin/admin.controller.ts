@@ -4,6 +4,7 @@ import { UserRole } from '../users/dto/user.dto';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { UpdateSystemSettingsDto, UploadLogoDto } from './dto/system-settings.dto';
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminController {
@@ -45,37 +46,50 @@ export class AdminController {
 
   @Get('settings')
   @Roles(UserRole.ADMIN)
-  getSettings() {
-    // Return current system settings
-    // This would typically fetch from database or config
+  async getSettings() {
+    const settings = await this.admin.getSystemSettings();
     return {
       system: {
-        companyName: 'شركة إدارة التوظيف والمبيعات',
-        timezone: 'Asia/Riyadh',
-        description: 'نحن شركة رائدة في مجال إدارة الموارد البشرية والمبيعات...',
-        phone: '+966 11 234 5678',
-        email: 'info@hrcrm.com',
-        emailNotifications: true,
-        smsNotifications: false,
-        browserNotifications: true,
-        dailyReports: true,
-        twoFactorAuth: false,
-        passwordExpiration: true,
-        minPasswordLength: 8,
-        maxLoginAttempts: 3
+        companyLogo: settings.companyLogo,
+        companyName: settings.companyName,
+        showTotalUsers: settings.showTotalUsers,
+        showTotalClients: settings.showTotalClients,
+        showTotalJobs: settings.showTotalJobs,
+        showTotalContracts: settings.showTotalContracts,
+        showTotalApplicants: settings.showTotalApplicants,
+        showMonthlyRevenue: settings.showMonthlyRevenue,
       },
     };
   }
 
   @Put('settings')
   @Roles(UserRole.ADMIN)
-  updateSettings(@Body() settings: any) {
-    // Save settings to database or config
-    // This would typically update the database
-    console.log('Updating settings:', settings);
+  async updateSettings(@Body() updateDto: UpdateSystemSettingsDto) {
+    const settings = await this.admin.updateSystemSettings(updateDto);
     return {
       success: true,
-      message: 'تم حفظ الإعدادات بنجاح'
+      message: 'تم حفظ الإعدادات بنجاح',
+      settings: {
+        companyLogo: settings.companyLogo,
+        companyName: settings.companyName,
+        showTotalUsers: settings.showTotalUsers,
+        showTotalClients: settings.showTotalClients,
+        showTotalJobs: settings.showTotalJobs,
+        showTotalContracts: settings.showTotalContracts,
+        showTotalApplicants: settings.showTotalApplicants,
+        showMonthlyRevenue: settings.showMonthlyRevenue,
+      },
+    };
+  }
+
+  @Post('settings/logo')
+  @Roles(UserRole.ADMIN)
+  async uploadLogo(@Body() uploadDto: UploadLogoDto) {
+    const settings = await this.admin.uploadCompanyLogo(uploadDto.logo);
+    return {
+      success: true,
+      message: 'تم رفع الشعار بنجاح',
+      logo: settings.companyLogo,
     };
   }
 
