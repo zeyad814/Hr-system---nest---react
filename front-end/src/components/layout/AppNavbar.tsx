@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom"
 import { ProfileSection } from "@/components/profile/ProfileSection"
 import { useState } from "react"
 import { useLanguage } from "@/contexts/LanguageContext"
+import { useSystemSettings } from "@/hooks/useSystemSettings"
 
 interface AppNavbarProps {
   userRole?: string
@@ -29,6 +30,7 @@ export function AppNavbar({ userRole = "admin", userName = "أحمد محمد" }
   const navigate = useNavigate();
   const [showProfileSection, setShowProfileSection] = useState(false);
   const { t } = useLanguage();
+  const { logo } = useSystemSettings();
   
   // Use actual user data if available
   const actualUserRole = user?.role || userRole;
@@ -75,7 +77,7 @@ export function AppNavbar({ userRole = "admin", userName = "أحمد محمد" }
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-primary flex items-center justify-center">
               <div className="h-9 w-9 rounded-2xl flex-shrink-0 bg-white  ">
                 <a href="/" className="h-full w-full flex items-center justify-center">
-                  <img src="/logo.png" alt="YAS Logo" className="h-full w-full object-contain" />
+                  <img src={logo} alt="YAS Logo" className="h-full w-full object-contain" />
                   </a>
                 </div>            </div>
             <span className="hidden sm:block font-bold text-base sm:text-lg">YAS GLOBAL PARTNER</span>

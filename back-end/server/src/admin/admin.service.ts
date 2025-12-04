@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateSystemSettingsDto } from './dto/system-settings.dto';
 
 @Injectable()
 export class AdminService {
@@ -108,5 +109,78 @@ export class AdminService {
     });
 
     return profile;
+  }
+
+  // System Settings Management
+  async getSystemSettings() {
+    let settings = await this.prisma.systemSettings.findFirst();
+    
+    if (!settings) {
+      // Create default settings if none exist
+      settings = await this.prisma.systemSettings.create({
+        data: {
+          showTotalUsers: true,
+          showTotalClients: true,
+          showTotalJobs: true,
+          showTotalContracts: true,
+          showTotalApplicants: true,
+          showMonthlyRevenue: true,
+        },
+      });
+    }
+
+    return settings;
+  }
+
+  async updateSystemSettings(updateDto: UpdateSystemSettingsDto) {
+    let settings = await this.prisma.systemSettings.findFirst();
+
+    if (!settings) {
+      // Create if doesn't exist
+      settings = await this.prisma.systemSettings.create({
+        data: {
+          ...updateDto,
+          showTotalUsers: updateDto.showTotalUsers ?? true,
+          showTotalClients: updateDto.showTotalClients ?? true,
+          showTotalJobs: updateDto.showTotalJobs ?? true,
+          showTotalContracts: updateDto.showTotalContracts ?? true,
+          showTotalApplicants: updateDto.showTotalApplicants ?? true,
+          showMonthlyRevenue: updateDto.showMonthlyRevenue ?? true,
+        },
+      });
+    } else {
+      // Update existing
+      settings = await this.prisma.systemSettings.update({
+        where: { id: settings.id },
+        data: updateDto,
+      });
+    }
+
+    return settings;
+  }
+
+  async uploadCompanyLogo(logoBase64: string) {
+    let settings = await this.prisma.systemSettings.findFirst();
+
+    if (!settings) {
+      settings = await this.prisma.systemSettings.create({
+        data: {
+          companyLogo: logoBase64,
+          showTotalUsers: true,
+          showTotalClients: true,
+          showTotalJobs: true,
+          showTotalContracts: true,
+          showTotalApplicants: true,
+          showMonthlyRevenue: true,
+        },
+      });
+    } else {
+      settings = await this.prisma.systemSettings.update({
+        where: { id: settings.id },
+        data: { companyLogo: logoBase64 },
+      });
+    }
+
+    return settings;
   }
 }

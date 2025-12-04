@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LanguageToggle } from "@/components/ui/language-toggle";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { Eye, EyeOff, LogIn, Building2, Briefcase, Menu, Users, UserPlus, TrendingUp ,Linkedin,
   Instagram,
   Twitter,
@@ -224,7 +225,7 @@ const Login = () => {
               
               <div className="h-9 w-9 rounded-2xl flex-shrink-0 bg-white  ">
                 <a href="/" className="h-full w-full flex items-center justify-center">
-                  <img src="/logo.png" alt="YAS Logo" className="h-full w-full object-contain" />
+                  <img src={logo} alt="YAS Logo" className="h-full w-full object-contain" />
                   </a>
                 </div>
                 <div className="min-w-0 pr-2 pl-2">

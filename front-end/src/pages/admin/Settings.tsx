@@ -1,11 +1,13 @@
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useState, useEffect } from "react";
+import { Label } from "@/components/ui/label";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import api from "@/lib/api";
 import { 
   Settings, 
   Save, 
@@ -20,7 +22,12 @@ import {
   Palette,
   Video,
   CheckCircle,
-  XCircle
+  XCircle,
+  Upload,
+  Image as ImageIcon,
+  Eye,
+  EyeOff,
+  BarChart3
 } from "lucide-react";
 
 interface AgoraSettings {
@@ -33,19 +40,14 @@ interface AgoraSettings {
 }
 
 interface SystemSettings {
-  companyName: string;
-  timezone: string;
-  description: string;
-  phone: string;
-  email: string;
-  emailNotifications: boolean;
-  smsNotifications: boolean;
-  browserNotifications: boolean;
-  dailyReports: boolean;
-  twoFactorAuth: boolean;
-  passwordExpiration: boolean;
-  minPasswordLength: number;
-  maxLoginAttempts: number;
+  companyLogo?: string;
+  companyName?: string;
+  showTotalUsers: boolean;
+  showTotalClients: boolean;
+  showTotalJobs: boolean;
+  showTotalContracts: boolean;
+  showTotalApplicants: boolean;
+  showMonthlyRevenue: boolean;
 }
 
 const AdminSettings = () => {
@@ -60,23 +62,20 @@ const AdminSettings = () => {
   });
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
-    companyName: t('admin.settings.defaultCompanyName'),
-    timezone: 'Asia/Riyadh',
-    description: t('admin.settings.defaultDescription'),
-    phone: '+966 11 234 5678',
-    email: 'info@hrcrm.com',
-    emailNotifications: true,
-    smsNotifications: false,
-    browserNotifications: true,
-    dailyReports: true,
-    twoFactorAuth: false,
-    passwordExpiration: true,
-    minPasswordLength: 8,
-    maxLoginAttempts: 3
+    companyLogo: undefined,
+    companyName: undefined,
+    showTotalUsers: true,
+    showTotalClients: true,
+    showTotalJobs: true,
+    showTotalContracts: true,
+    showTotalApplicants: true,
+    showMonthlyRevenue: true,
   });
 
   const [agoraConnectionStatus, setAgoraConnectionStatus] = useState<'connected' | 'disconnected' | 'testing'>('disconnected');
   const [isLoading, setIsLoading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadSettings();
@@ -85,50 +84,28 @@ const AdminSettings = () => {
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/admin/settings', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.get('/admin/settings');
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch settings');
-      }
-      
-      const data = await response.json();
-      
-      if (data.agora) {
-        setAgoraSettings({
-          appId: data.agora.appId || '',
-          appCertificate: data.agora.appCertificate || '',
-          tokenExpiration: data.agora.tokenExpiration || 3600,
-          maxParticipants: data.agora.maxParticipants || 10,
-          recordingEnabled: data.agora.recordingEnabled || false,
-          screenSharingEnabled: data.agora.screenSharingEnabled || true
-        });
-      }
-      
-      if (data.system) {
+      if (response.data.system) {
+        const system = response.data.system;
         setSystemSettings({
-          companyName: data.system.companyName || t('admin.settings.defaultCompanyName'),
-          timezone: data.system.timezone || 'Asia/Riyadh',
-          description: data.system.description || t('admin.settings.defaultDescription'),
-          phone: data.system.phone || '+966 11 234 5678',
-          email: data.system.email || 'info@hrcrm.com',
-          emailNotifications: data.system.emailNotifications !== undefined ? data.system.emailNotifications : true,
-          smsNotifications: data.system.smsNotifications !== undefined ? data.system.smsNotifications : false,
-          browserNotifications: data.system.browserNotifications !== undefined ? data.system.browserNotifications : true,
-          dailyReports: data.system.dailyReports !== undefined ? data.system.dailyReports : true,
-          twoFactorAuth: data.system.twoFactorAuth !== undefined ? data.system.twoFactorAuth : false,
-          passwordExpiration: data.system.passwordExpiration !== undefined ? data.system.passwordExpiration : true,
-          minPasswordLength: data.system.minPasswordLength || 8,
-          maxLoginAttempts: data.system.maxLoginAttempts || 3
+          companyLogo: system.companyLogo,
+          companyName: system.companyName,
+          showTotalUsers: system.showTotalUsers !== undefined ? system.showTotalUsers : true,
+          showTotalClients: system.showTotalClients !== undefined ? system.showTotalClients : true,
+          showTotalJobs: system.showTotalJobs !== undefined ? system.showTotalJobs : true,
+          showTotalContracts: system.showTotalContracts !== undefined ? system.showTotalContracts : true,
+          showTotalApplicants: system.showTotalApplicants !== undefined ? system.showTotalApplicants : true,
+          showMonthlyRevenue: system.showMonthlyRevenue !== undefined ? system.showMonthlyRevenue : true,
         });
+        
+        if (system.companyLogo) {
+          setLogoPreview(system.companyLogo);
+        }
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
-      toast.error(t('admin.settings.loadError'));
+      toast.error('فشل تحميل الإعدادات');
     } finally {
       setIsLoading(false);
     }
@@ -170,31 +147,54 @@ const AdminSettings = () => {
     }
   };
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('الرجاء اختيار ملف صورة');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('حجم الصورة يجب أن يكون أقل من 2 ميجابايت');
+      return;
+    }
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64String = e.target?.result as string;
+        setLogoPreview(base64String);
+        
+        try {
+          await api.post('/admin/settings/logo', { logo: base64String });
+          setSystemSettings(prev => ({ ...prev, companyLogo: base64String }));
+          toast.success('تم رفع الشعار بنجاح');
+        } catch (error) {
+          console.error('Error uploading logo:', error);
+          toast.error('فشل رفع الشعار');
+        }
+      };
+      
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error processing logo:', error);
+      toast.error('فشل معالجة الصورة');
+    }
+  };
+
   const saveSettings = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          system: systemSettings,
-          agora: agoraSettings
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save settings');
-      }
-
-      const data = await response.json();
-      toast.success(t('admin.settings.settingsSaved'));
+      await api.put('/admin/settings', systemSettings);
+      toast.success('تم حفظ الإعدادات بنجاح');
     } catch (error) {
       console.error('Failed to save settings:', error);
-      toast.error(t('admin.settings.saveError'));
+      toast.error('فشل حفظ الإعدادات');
     } finally {
       setIsLoading(false);
     }
@@ -202,15 +202,174 @@ const AdminSettings = () => {
 
   return (
     <MainLayout userRole="admin" userName="محمد أحمد">
-      <div className="space-y-6">
+      <div className="space-y-6" dir="rtl">
         {/* Page Header */}
-
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">الإعدادات</h1>
+            <p className="text-muted-foreground mt-1">إدارة إعدادات النظام والشعار</p>
+          </div>
+          <Button onClick={saveSettings} disabled={isLoading}>
+            <Save className="ml-2 h-4 w-4" />
+            حفظ الإعدادات
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Settings */}
           <div className="lg:col-span-2 space-y-6">
-           
-         
+            {/* Company Logo Upload */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  شعار الشركة
+                </CardTitle>
+                <CardDescription>
+                  قم برفع شعار الشركة الذي سيظهر في جميع صفحات النظام
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-shrink-0">
+                    {logoPreview ? (
+                      <div className="relative">
+                        <img 
+                          src={logoPreview} 
+                          alt="Company Logo" 
+                          className="h-24 w-24 object-contain border rounded-lg p-2 bg-white"
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-24 w-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted">
+                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="ml-2 h-4 w-4" />
+                      {logoPreview ? 'تغيير الشعار' : 'رفع شعار'}
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      الصيغ المدعومة: PNG, JPG, SVG. الحد الأقصى: 2 ميجابايت
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Dashboard Statistics Visibility */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  إعدادات عرض الأرقام في لوحة التحكم
+                </CardTitle>
+                <CardDescription>
+                  اختر الأرقام التي تريد إظهارها في لوحة التحكم الرئيسية
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="showUsers">إظهار إجمالي المستخدمين</Label>
+                    </div>
+                    <Switch
+                      id="showUsers"
+                      checked={systemSettings.showTotalUsers}
+                      onCheckedChange={(checked) =>
+                        setSystemSettings(prev => ({ ...prev, showTotalUsers: checked }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="showClients">إظهار إجمالي العملاء</Label>
+                    </div>
+                    <Switch
+                      id="showClients"
+                      checked={systemSettings.showTotalClients}
+                      onCheckedChange={(checked) =>
+                        setSystemSettings(prev => ({ ...prev, showTotalClients: checked }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Video className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="showJobs">إظهار إجمالي الوظائف</Label>
+                    </div>
+                    <Switch
+                      id="showJobs"
+                      checked={systemSettings.showTotalJobs}
+                      onCheckedChange={(checked) =>
+                        setSystemSettings(prev => ({ ...prev, showTotalJobs: checked }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="showContracts">إظهار إجمالي العقود</Label>
+                    </div>
+                    <Switch
+                      id="showContracts"
+                      checked={systemSettings.showTotalContracts}
+                      onCheckedChange={(checked) =>
+                        setSystemSettings(prev => ({ ...prev, showTotalContracts: checked }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="showApplicants">إظهار إجمالي المتقدمين</Label>
+                    </div>
+                    <Switch
+                      id="showApplicants"
+                      checked={systemSettings.showTotalApplicants}
+                      onCheckedChange={(checked) =>
+                        setSystemSettings(prev => ({ ...prev, showTotalApplicants: checked }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="showRevenue">إظهار الإيرادات الشهرية</Label>
+                    </div>
+                    <Switch
+                      id="showRevenue"
+                      checked={systemSettings.showMonthlyRevenue}
+                      onCheckedChange={(checked) =>
+                        setSystemSettings(prev => ({ ...prev, showMonthlyRevenue: checked }))
+                      }
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* System Status */}
             <Card>
               <CardHeader>
@@ -220,40 +379,16 @@ const AdminSettings = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-sm">{t('admin.settings.serverStatus')}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-secondary rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="text-sm text-secondary">{t('admin.settings.connected')}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">{t('admin.settings.database')}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-secondary rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="text-sm text-secondary">{t('admin.settings.connected')}</span>
                   </div>
-                </div>
-
-              
-
-              </CardContent>
-            </Card>
-
-            {/* Version Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('admin.settings.systemInfo')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>{t('admin.settings.systemVersion')}:</span>
-                  <span className="font-medium">v2.1.0</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{t('admin.settings.lastUpdate')}:</span>
-                  <span className="font-medium">{t('admin.settings.lastUpdateDate')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{t('admin.settings.activeUsers')}:</span>
-                  <span className="font-medium">24</span>
                 </div>
               </CardContent>
             </Card>

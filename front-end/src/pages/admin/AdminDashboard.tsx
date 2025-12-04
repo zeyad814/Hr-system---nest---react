@@ -42,6 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AdminDashboard as AdminDashboardWidget } from "@/components/dashboard/AdminDashboard";
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 
 interface Integration {
@@ -69,6 +70,7 @@ interface SystemPermission {
 
 const AdminDashboardPage = () => {
   const { t } = useLanguage();
+  const { settings } = useSystemSettings();
   const [dashboardData, setDashboardData] = useState({
     totalUsers: 0,
     totalClients: 0,
@@ -76,7 +78,15 @@ const AdminDashboardPage = () => {
     totalContracts: 0,
     totalApplicants: 0,
     monthlyRevenue: 0,
-    revenueGrowth: 0
+    revenueGrowth: 0,
+    visibility: {
+      showTotalUsers: true,
+      showTotalClients: true,
+      showTotalJobs: true,
+      showTotalContracts: true,
+      showTotalApplicants: true,
+      showMonthlyRevenue: true,
+    }
   });
   const [integrations, setIntegrations] = useState<Integration[]>([
     {
@@ -206,7 +216,15 @@ const AdminDashboardPage = () => {
           totalContracts: 67,
           totalApplicants: 1205,
           monthlyRevenue: 125000,
-          revenueGrowth: 12.5
+          revenueGrowth: 12.5,
+          visibility: {
+            showTotalUsers: true,
+            showTotalClients: true,
+            showTotalJobs: true,
+            showTotalContracts: true,
+            showTotalApplicants: true,
+            showMonthlyRevenue: true,
+          }
         });
       } finally {
         setLoading(false);
@@ -319,41 +337,51 @@ const AdminDashboardPage = () => {
           <TabsContent value="dashboard" className="space-y-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-              <StatCard
-                title={t('admin.dashboard.stats.totalUsers')}
-                value={dashboardData.totalUsers}
-                icon={Users}
-                change="+12%"
-                changeType="positive"
-              />
-              <StatCard
-                title={t('admin.dashboard.stats.totalClients')}
-                value={dashboardData.totalClients}
-                icon={Briefcase}
-                change="+8%"
-                changeType="positive"
-              />
-              <StatCard
-                title={t('admin.dashboard.stats.activeJobs')}
-                value={dashboardData.totalJobs}
-                icon={UserCheck}
-                change="+15%"
-                changeType="positive"
-              />
-              <StatCard
-                title={t('admin.dashboard.stats.signedContracts')}
-                value={dashboardData.totalContracts}
-                icon={FileText}
-                change="+5%"
-                changeType="positive"
-              />
-              <StatCard
-                title={t('admin.dashboard.stats.totalApplicants')}
-                value={dashboardData.totalApplicants}
-                icon={TrendingUp}
-                change="+22%"
-                changeType="positive"
-              />
+              {dashboardData.visibility?.showTotalUsers !== false && (
+                <StatCard
+                  title={t('admin.dashboard.stats.totalUsers')}
+                  value={dashboardData.totalUsers ?? 0}
+                  icon={Users}
+                  change="+12%"
+                  changeType="positive"
+                />
+              )}
+              {dashboardData.visibility?.showTotalClients !== false && (
+                <StatCard
+                  title={t('admin.dashboard.stats.totalClients')}
+                  value={dashboardData.totalClients ?? 0}
+                  icon={Briefcase}
+                  change="+8%"
+                  changeType="positive"
+                />
+              )}
+              {dashboardData.visibility?.showTotalJobs !== false && (
+                <StatCard
+                  title={t('admin.dashboard.stats.activeJobs')}
+                  value={dashboardData.totalJobs ?? 0}
+                  icon={UserCheck}
+                  change="+15%"
+                  changeType="positive"
+                />
+              )}
+              {dashboardData.visibility?.showTotalContracts !== false && (
+                <StatCard
+                  title={t('admin.dashboard.stats.signedContracts')}
+                  value={dashboardData.totalContracts ?? 0}
+                  icon={FileText}
+                  change="+5%"
+                  changeType="positive"
+                />
+              )}
+              {dashboardData.visibility?.showTotalApplicants !== false && (
+                <StatCard
+                  title={t('admin.dashboard.stats.totalApplicants')}
+                  value={dashboardData.totalApplicants ?? 0}
+                  icon={TrendingUp}
+                  change="+22%"
+                  changeType="positive"
+                />
+              )}
             </div>
 
             {/* Charts and Activities */}

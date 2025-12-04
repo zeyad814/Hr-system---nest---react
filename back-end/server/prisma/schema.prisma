@@ -850,3 +850,21 @@ enum MeetingType {
   GOOGLE_MEET
   ZOOM
 }
+
+// System Settings Model - إعدادات النظام العامة
+model SystemSettings {
+  id                    String   @id @default(uuid())
+  companyLogo           String?  // Company logo URL or base64
+  companyName           String?  // Company name
+  // Dashboard Statistics Visibility
+  showTotalUsers        Boolean  @default(true)
+  showTotalClients      Boolean  @default(true)
+  showTotalJobs         Boolean  @default(true)
+  showTotalContracts    Boolean  @default(true)
+  showTotalApplicants   Boolean  @default(true)
+  showMonthlyRevenue    Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("system_settings")
+}
