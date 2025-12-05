@@ -97,6 +97,13 @@ export const TagsInput = ({
         />
       </div>
 
+      {/* Hint for custom input */}
+      {inputValue && (
+        <div className="text-xs text-muted-foreground px-2">
+          اضغط <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-md dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500">Enter</kbd> لإضافة "{inputValue}"
+        </div>
+      )}
+
       {/* Suggestions Dropdown */}
       {showSuggestions && filteredSuggestions.length > 0 && (
         <div className="border rounded-md bg-popover p-2 shadow-lg max-h-[200px] overflow-y-auto">

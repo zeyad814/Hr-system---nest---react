@@ -39,6 +39,7 @@ const Login = () => {
   const { toast } = useToast();
   const { t, isRTL } = useLanguage();
   const { login, user, isAuthenticated } = useAuth();
+  const { logo = '/logo.png' } = useSystemSettings();
 
   // If user is already authenticated, show a message instead of redirecting
   if (isAuthenticated && user) {
@@ -225,7 +226,7 @@ const Login = () => {
               
               <div className="h-9 w-9 rounded-2xl flex-shrink-0 bg-white  ">
                 <a href="/" className="h-full w-full flex items-center justify-center">
-                  <img src={logo} alt="YAS Logo" className="h-full w-full object-contain" />
+                  <img src={logo || '/logo.png'} alt="YAS Logo" className="h-full w-full object-contain" onError={(e) => { e.currentTarget.src = '/logo.png' }} />
                   </a>
                 </div>
                 <div className="min-w-0 pr-2 pl-2">

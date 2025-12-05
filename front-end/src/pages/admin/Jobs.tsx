@@ -485,12 +485,15 @@ const AdminJobs = () => {
       </div>
 
       <div className="space-y-2">
-        <Label>المهارات المطلوبة</Label>
+        <div className="flex items-center justify-between">
+          <Label>المهارات المطلوبة</Label>
+          <span className="text-xs text-muted-foreground">يمكنك إضافة مهارات جديدة أو اختيار من القائمة</span>
+        </div>
         <TagsInput
           value={formData.requiredSkills}
           onChange={(tags) => setFormData({...formData, requiredSkills: tags})}
           suggestions={skillSuggestions}
-          placeholder="أضف مهارة..."
+          placeholder="اكتب واضغط Enter لإضافة مهارة جديدة..."
         />
       </div>
 

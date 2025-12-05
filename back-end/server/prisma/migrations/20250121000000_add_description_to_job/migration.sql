@@ -1,5 +1,5 @@
 -- AddDescriptionToJob
-ALTER TABLE "Job" ADD COLUMN "description" TEXT;
+ALTER TABLE IF EXISTS "Job" ADD COLUMN IF NOT EXISTS "description" TEXT;
 
 
 

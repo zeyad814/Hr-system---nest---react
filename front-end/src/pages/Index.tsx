@@ -228,7 +228,7 @@ const HomePage = () => {
               
               <div className="h-9 w-9 rounded-2xl flex-shrink-0 bg-white  ">
                 <a href="/" className="h-full w-full flex items-center justify-center">
-                  <img src={logo} alt="YAS Logo" className="h-full w-full object-contain" />
+                  <img src={logo || '/logo.png'} alt="YAS Logo" className="h-full w-full object-contain" onError={(e) => { e.currentTarget.src = '/logo.png' }} />
                   </a>
                 </div>
                 <div className="min-w-0 pr-2 pl-2">
@@ -322,7 +322,7 @@ const HomePage = () => {
             <div className="text-center mb-12 sm:mb-16">
               <div className="flex justify-center mb-6">
                 <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center shadow-2xl">
-                  <img src={logo} alt="YAS Logo" className="h-full w-full object-contain bg-white  rounded-2xl" />
+                  <img src={logo || '/logo.png'} alt="YAS Logo" className="h-full w-full object-contain bg-white  rounded-2xl" onError={(e) => { e.currentTarget.src = '/logo.png' }} />
                 </div>
               </div>
               
@@ -1058,7 +1058,7 @@ const HomePage = () => {
             <div>
               <div className="flex items-center space-x-2 space-x-reverse mb-4">
                 <div className="h-8 w-8 rounded-lg  flex items-center justify-center">
-                  <img src={logo} alt="YAS Logo" className="h-full w-full object-contain bg-white  rounded-2xl" />
+                  <img src={logo || '/logo.png'} alt="YAS Logo" className="h-full w-full object-contain bg-white  rounded-2xl" onError={(e) => { e.currentTarget.src = '/logo.png' }} />
                 </div>
                 <span className="font-bold text-lg">YAS GLOBAL PARTNER</span>
               </div>

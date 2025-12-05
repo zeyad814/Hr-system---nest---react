@@ -21,6 +21,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:resolve": "prisma migrate resolve --rolled-back",
     "prisma:studio": "prisma studio",
     "db:dev": "docker compose up -d postgres",
     "db:stop": "docker compose down",

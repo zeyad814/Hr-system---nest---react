@@ -18,11 +18,16 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access - redirect to login
+      // Clear auth data
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
       localStorage.removeItem('token_expiry');
-      window.location.href = '/login';
+
+      // Only redirect if not already on login/register pages to prevent infinite loops
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/') {
+        window.location.href = '/login';
+      }
     }
     // Normalize/translate backend error messages to current UI language
     try {

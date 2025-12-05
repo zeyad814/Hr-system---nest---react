@@ -31,68 +31,85 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check for existing token on mount and validate it
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('access_token');
-      const userData = localStorage.getItem('user');
+  // Validate if token is still valid
+  const validateToken = (): boolean => {
+    const token = localStorage.getItem('access_token');
+    const expiryTime = localStorage.getItem('token_expiry');
+    
+    if (!token || !expiryTime) {
+      return false;
+    }
+    
+    const now = Date.now();
+    const expiry = parseInt(expiryTime);
+    
+    // Check if token is expired (with 5 minute buffer)
+    return now < (expiry - 5 * 60 * 1000);
+  };
+  
+  // Refresh token function
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      const currentToken = localStorage.getItem('access_token');
+      if (!currentToken) {
+        return false;
+      }
       
-      if (token && userData) {
-        try {
-          const parsedUser = JSON.parse(userData);
-          
-          // Validate token
-          if (validateToken()) {
-            setUser(parsedUser);
-            
-            // Preserve current path on reload; only redirect if landing on root or auth pages
-            const currentPath = window.location.pathname;
-            const isAuthPage = currentPath === '/login' || currentPath === '/register';
-            const isRoot = currentPath === '/';
-            if (isAuthPage || isRoot) {
-              // Auto-navigate to appropriate dashboard based on role only from root/auth
-              switch (parsedUser.role) {
-                case 'ADMIN':
-                  navigate('/admin');
-                  break;
-                case 'HR':
-                  navigate('/hr');
-                  break;
-                case 'CLIENT':
-                  navigate('/client');
-                  break;
-                case 'APPLICANT':
-                  navigate('/applicant');
-                  break;
-                case 'SALES':
-                  navigate('/sales');
-                  break;
-                default:
-                  navigate('/dashboard');
-              }
-            }
-          } else {
-            // Try to refresh token
-            const refreshed = await refreshToken();
-            if (!refreshed) {
-              // Token refresh failed, clear auth data
-              localStorage.removeItem('access_token');
-              localStorage.removeItem('user');
-              localStorage.removeItem('token_expiry');
-            }
-          }
-        } catch (error) {
-          console.error('Error parsing user data:', error);
+      const metaEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+      const apiBase = metaEnv.VITE_API_BASE || 'http://localhost:3000/api';
+      const response = await fetch(`${apiBase}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentToken}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update stored token and expiry
+        localStorage.setItem('access_token', data.access_token);
+        const expiryTime = Date.now() + (60 * 60 * 1000); // 1 hour
+        localStorage.setItem('token_expiry', expiryTime.toString());
+        
+        console.log('Token refreshed successfully');
+        return true;
+      } else {
+        console.log('Token refresh failed');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      return false;
+    }
+  };
+
+  // Check for existing token on mount - SIMPLE VERSION
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        if (validateToken()) {
+          setUser(parsedUser);
+        } else {
+          // Token expired, clear it
           localStorage.removeItem('access_token');
           localStorage.removeItem('user');
           localStorage.removeItem('token_expiry');
         }
+      } catch (error) {
+        // Invalid data, clear it
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('token_expiry');
       }
-      setLoading(false);
-    };
-    
-    initializeAuth();
-  }, [navigate]);
+    }
+    setLoading(false);
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
@@ -173,59 +190,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Validate if token is still valid
-  const validateToken = (): boolean => {
-    const token = localStorage.getItem('access_token');
-    const expiryTime = localStorage.getItem('token_expiry');
-    
-    if (!token || !expiryTime) {
-      return false;
-    }
-    
-    const now = Date.now();
-    const expiry = parseInt(expiryTime);
-    
-    // Check if token is expired (with 5 minute buffer)
-    return now < (expiry - 5 * 60 * 1000);
-  };
-  
-  // Refresh token function
-  const refreshToken = async (): Promise<boolean> => {
-    try {
-      const currentToken = localStorage.getItem('access_token');
-      if (!currentToken) {
-        return false;
-      }
-      
-      const metaEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
-      const apiBase = metaEnv.VITE_API_BASE || 'http://localhost:3000/api';
-      const response = await fetch(`${apiBase}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentToken}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Update stored token and expiry
-        localStorage.setItem('access_token', data.access_token);
-        const expiryTime = Date.now() + (60 * 60 * 1000); // 1 hour
-        localStorage.setItem('token_expiry', expiryTime.toString());
-        
-        console.log('Token refreshed successfully');
-        return true;
-      } else {
-        console.log('Token refresh failed');
-        return false;
-      }
-    } catch (error) {
-      console.error('Error refreshing token:', error);
-      return false;
-    }
-  };
   
   const logout = () => {
     // Clear stored data

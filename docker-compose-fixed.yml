@@ -1,3 +1,4 @@
+version: '3.8'
 
 services:
   postgres:
@@ -13,10 +14,13 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    command: >
-      postgres
-      -c listen_addresses='*'
-      -c password_encryption=scram-sha-256
+    command: postgres -c listen_addresses='*' -c password_encryption=scram-sha-256
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hrdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   backend:
     build:
@@ -27,11 +31,12 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hrdb
-      - JWT_SECRET=your-jwt-secret-key
-      - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/hrdb}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
+      - NODE_ENV=${NODE_ENV:-development}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     volumes:
       - ./back-end/server:/app
       - /app/node_modules
